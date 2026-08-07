@@ -35,10 +35,16 @@ fn arg_value(name: &str) -> Option<String> {
         .map(|arg| arg[prefix.len()..].to_string())
 }
 
-/// `simulate [--days=N]` — generate the world from the configured database
-/// and tick it N simulated days, printing per-day timings and a summary.
+/// `simulate [--days=N] [--seed=N]` — generate the world from the
+/// configured database and tick it N simulated days, printing per-day
+/// timings and a summary. `--seed` pins the sim RNG and stamps stable
+/// per-fixture engine seeds.
 pub fn run_simulate() -> i32 {
     let days: u32 = arg_value("days").and_then(|v| v.parse().ok()).unwrap_or(60);
+    if let Some(seed) = arg_value("seed").and_then(|v| v.parse::<u64>().ok()) {
+        simulator_core::utils::random::engine::RandomEngine::set_seed(seed);
+        eprintln!("sim seed pinned: {seed}");
+    }
 
     eprintln!("loading world database…");
     let gen_start = Instant::now();
@@ -61,6 +67,11 @@ pub fn run_simulate() -> i32 {
         let ms = tick_start.elapsed().as_secs_f64() * 1000.0;
 
         let matches = result.match_results.len();
+        let goals: u32 = result
+            .match_results
+            .iter()
+            .map(|m| (m.score.home_team.get() + m.score.away_team.get()) as u32)
+            .sum();
         total_matches += matches as u64;
         if ms > slowest_ms {
             slowest_ms = ms;
@@ -68,7 +79,7 @@ pub fn run_simulate() -> i32 {
         }
 
         println!(
-            "day {day:>4}  {date}  {ms:>9.2} ms  matches={matches}",
+            "day {day:>4}  {date}  {ms:>9.2} ms  matches={matches} goals={goals}",
             date = data.date.date(),
         );
     }

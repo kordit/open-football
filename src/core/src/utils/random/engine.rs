@@ -29,6 +29,17 @@ thread_local! {
     static TL_ID: u64 = THREAD_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Added in this fork: the currently pinned sim seed, `None` while the
+/// engine runs unseeded. Used to derive stable per-match engine seeds in
+/// the matchday dispatch.
+pub fn current_seed() -> Option<u64> {
+    if SEED_GENERATION.load(Ordering::Relaxed) == 0 {
+        None
+    } else {
+        Some(SIM_SEED.load(Ordering::Relaxed))
+    }
+}
+
 struct ThreadRng {
     rng: SmallRng,
     known_generation: u64,

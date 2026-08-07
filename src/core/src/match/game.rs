@@ -14,6 +14,11 @@ pub struct Match {
     /// Knockout-format match — if level after 90 min, play extra time;
     /// if still level, resolve on penalties.
     pub is_knockout: bool,
+    /// Added in this fork: engine seed for this fixture. `Some(_)` pins the
+    /// match engine's owned RNG so the same squads + seed replay
+    /// bit-identically; `None` keeps legacy OS-entropy behaviour. Stamped
+    /// by the world matchday dispatch from the pinned sim seed.
+    pub seed: Option<u64>,
 }
 
 impl Match {
@@ -33,6 +38,7 @@ impl Match {
             away_squad,
             is_friendly,
             is_knockout: false,
+            seed: None,
         }
     }
 
@@ -51,6 +57,7 @@ impl Match {
             away_squad,
             is_friendly: false,
             is_knockout: true,
+            seed: None,
         }
     }
 
@@ -79,12 +86,15 @@ impl Match {
         let away_team_name = String::from(&self.away_squad.team_name);
 
         let match_recordings = MatchRuntime::recordings_mode() && !self.is_friendly;
-        let match_result = FootballEngine::<840, 545>::play(
+        // Modified from upstream: route through the seeded entry point so a
+        // stamped per-fixture seed makes the match reproducible.
+        let match_result = FootballEngine::<840, 545>::play_seeded(
             self.home_squad,
             self.away_squad,
             match_recordings,
             self.is_friendly,
             self.is_knockout,
+            self.seed,
         );
 
         let score = match_result.score.as_ref().expect("no score");

@@ -149,6 +149,20 @@ impl<'gc> WorldMatchdayResult<'gc> {
         let global_results: Vec<MatchResult> = if self.dispatched == 0 {
             Vec::new()
         } else {
+            // Added in this fork: when the sim seed is pinned, stamp every
+            // fixture with a stable per-match engine seed derived from
+            // (world seed, fixture id, date). The same fixture with the
+            // same squads then replays bit-identically regardless of rayon
+            // scheduling.
+            if let Some(world_seed) = crate::utils::random::engine::current_seed() {
+                let date_mix = world.date.and_utc().timestamp() as u64;
+                for m in &mut global_matches {
+                    let id_mix = fnv1a(m.id().as_bytes());
+                    m.seed = Some(splitmix64(
+                        world_seed ^ id_mix.rotate_left(17) ^ date_mix,
+                    ));
+                }
+            }
             info!(
                 "world matchday: dispatching {} matches in one global batch",
                 self.dispatched
@@ -263,4 +277,24 @@ impl<'gc> WorldMatchdayResult<'gc> {
             continent_result.process(data, result);
         }
     }
+}
+
+/// Added in this fork: FNV-1a over bytes — stable, dependency-free hash for
+/// deriving per-match seeds from fixture ids.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for b in bytes {
+        hash ^= *b as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+/// Added in this fork: splitmix64 finalizer — decorrelates the combined
+/// (world seed, fixture, date) mix so nearby inputs give unrelated seeds.
+fn splitmix64(mut z: u64) -> u64 {
+    z = z.wrapping_add(0x9E3779B97F4A7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^ (z >> 31)
 }
