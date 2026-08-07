@@ -557,7 +557,14 @@ pub async fn match_get_action(
         player_of_the_match_id: motm_id.unwrap_or(0),
         player_of_the_match_slug: motm_slug,
         player_of_the_match_name: motm_name,
-        match_recordings_enabled: MatchRuntime::recordings_mode()
+        // Modified from upstream: with per-match recording (managed club)
+        // the global flag alone no longer decides whether a replay exists —
+        // offer the viewer whenever a stored replay is on disk too.
+        match_recordings_enabled: (MatchRuntime::recordings_mode()
+            || crate::r#match::stores::MatchStore::metadata_exists(
+                &match_result.league_slug,
+                &route_params.match_id,
+            ))
             && league.is_some_and(|l| !l.friendly),
     })
 }

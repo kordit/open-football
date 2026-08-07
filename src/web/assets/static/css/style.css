@@ -13807,3 +13807,307 @@ a.np-prose-link.np-mark:focus-visible,
         font-size: 14px;
     }
 }
+
+/* ============================================
+   POLAND CLUB-SELECTION MAP (added in this fork)
+   ============================================ */
+
+.fm-map-wrap {
+    padding: 20px 16px 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.fm-map-svg {
+    width: 100%;
+    max-width: 660px;
+    height: auto;
+    display: block;
+}
+
+.fm-map-region {
+    fill: #202c35;
+    stroke: #121b21;
+    stroke-width: 1.2;
+    stroke-linejoin: round;
+}
+
+.fm-map-region-active {
+    fill: #2a4152;
+    cursor: pointer;
+    transition: fill 0.15s ease;
+}
+
+.fm-map-region-group:hover .fm-map-region-active,
+.fm-map-region-group:focus-within .fm-map-region-active {
+    fill: #3a6a58;
+    stroke: #5cb86c;
+}
+
+.fm-map-svg a {
+    outline: none;
+}
+
+.fm-map-badge circle {
+    fill: #101820;
+    fill-opacity: 0.82;
+    stroke: #4a9d5b;
+    stroke-width: 1.4;
+    transition: stroke 0.15s ease;
+}
+
+.fm-map-region-group:hover .fm-map-badge circle {
+    stroke: #5cb86c;
+    fill-opacity: 0.95;
+}
+
+.fm-map-badge text {
+    fill: #d9e6ef;
+    font-size: 12px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    letter-spacing: 0.4px;
+}
+
+.fm-map-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 6px 10px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid #263340;
+}
+
+.fm-map-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    background: #1a242c;
+    border: 1px solid #263340;
+    font-size: 12px;
+    color: #c8d6e0;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+a.fm-map-legend-item:hover {
+    background: #22323c;
+    border-color: #4a9d5b;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.fm-map-legend-item-empty {
+    opacity: 0.45;
+}
+
+.fm-map-legend-count {
+    font-weight: 700;
+    color: #4a9d5b;
+    font-size: 11px;
+}
+
+.fm-map-legend-item-empty .fm-map-legend-count {
+    color: #4e5a63;
+}
+
+/* --- Level 2: districts of a voivodeship --- */
+
+.fm-map-l2-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 2px 0 14px;
+}
+
+.fm-map-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border: 1px solid #263340;
+    border-radius: 3px;
+    background: #1a242c;
+    color: #c8d6e0;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.15s ease;
+}
+
+.fm-map-back:hover {
+    border-color: #4a9d5b;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.fm-map-l2-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #e4edf3;
+    letter-spacing: 0.3px;
+}
+
+.fm-map-l2-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a9d5b;
+}
+
+.fm-map-districts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+@media (max-width: 560px) {
+    .fm-map-districts {
+        grid-template-columns: 1fr;
+    }
+}
+
+.fm-map-district-body {
+    padding: 10px 12px 12px;
+}
+
+.fm-map-district-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #546a78;
+    margin: 8px 0 6px;
+}
+
+.fm-map-district-section-label:first-child {
+    margin-top: 0;
+}
+
+.fm-map-district-leagues {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fm-map-league {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    background: #1a242c;
+    border: 1px solid #263340;
+    color: #c8d6e0;
+    font-size: 12px;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fm-map-league:hover {
+    background: #22323c;
+    border-color: #4a9d5b;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.fm-map-league-tier {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: #263340;
+    color: #8aa2b2;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.fm-map-league-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.fm-map-league-count {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a9d5b;
+}
+
+.fm-map-district-clubs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 4px;
+}
+
+.fm-map-club {
+    display: block;
+    padding: 5px 8px;
+    border-radius: 3px;
+    background: #18222a;
+    border: 1px solid #222f3a;
+    color: #a9bcc9;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.fm-map-club:hover {
+    border-color: #4a9d5b;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+/* --- Home page: new-career CTA --- */
+
+.fm-map-cta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 1rem;
+    padding: 14px 18px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #1e3a2c 0%, #1c2830 65%);
+    border: 1px solid #2f5a40;
+    color: #d9e6ef;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fm-map-cta:hover {
+    border-color: #4a9d5b;
+    background: linear-gradient(135deg, #234634 0%, #1e2c35 65%);
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.fm-map-cta > .fa-map {
+    font-size: 20px;
+    color: #4a9d5b;
+}
+
+.fm-map-cta-label {
+    flex: 1 1 auto;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.fm-map-cta > .fa-chevron-right {
+    color: #4a9d5b;
+    font-size: 13px;
+}

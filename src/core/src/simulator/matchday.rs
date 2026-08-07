@@ -116,7 +116,18 @@ impl<'gc> WorldMatchdayResult<'gc> {
     ///
     /// `continents` is `&mut data.continents` — taken as a split
     /// borrow alongside the immutable `world` snapshot.
-    pub fn process(&mut self, continents: &mut [Continent], world: WorldSnapshot<'_>) {
+    ///
+    /// Added in this fork: `managed_team_id` is the human manager's club
+    /// (from `SimulatorData.player_manager`), threaded in by the caller so
+    /// fixtures involving that club get `Match::record = true` — per-match
+    /// replay recording without the global recordings flag. `None` (no
+    /// career session) stamps nothing.
+    pub fn process(
+        &mut self,
+        continents: &mut [Continent],
+        world: WorldSnapshot<'_>,
+        managed_team_id: Option<u32>,
+    ) {
         let builds = std::mem::take(&mut self.builds);
 
         // 1. Flatten every continent's matches into one global Vec
@@ -161,6 +172,20 @@ impl<'gc> WorldMatchdayResult<'gc> {
                     m.seed = Some(splitmix64(
                         world_seed ^ id_mix.rotate_left(17) ^ date_mix,
                     ));
+                }
+            }
+            // Added in this fork: per-match replay recording for the
+            // managed club. Any fixture whose home or away squad is the
+            // player's team records position data even when the global
+            // `--match-recording-enabled` flag is off, so career-mode
+            // replays exist without recording the whole world.
+            for m in &mut global_matches {
+                if should_record(
+                    m.home_squad.team_id,
+                    m.away_squad.team_id,
+                    managed_team_id,
+                ) {
+                    m.record = true;
                 }
             }
             info!(
@@ -279,6 +304,17 @@ impl<'gc> WorldMatchdayResult<'gc> {
     }
 }
 
+/// Added in this fork: does a fixture between `home_id` and `away_id`
+/// involve the managed club? Pure decision behind the per-match replay
+/// recording stamp — extracted so the rule is unit-testable without
+/// standing up the engine.
+pub fn should_record(home_id: u32, away_id: u32, managed: Option<u32>) -> bool {
+    match managed {
+        Some(team_id) => home_id == team_id || away_id == team_id,
+        None => false,
+    }
+}
+
 /// Added in this fork: FNV-1a over bytes — stable, dependency-free hash for
 /// deriving per-match seeds from fixture ids.
 fn fnv1a(bytes: &[u8]) -> u64 {
@@ -297,4 +333,30 @@ fn splitmix64(mut z: u64) -> u64 {
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
     z ^ (z >> 31)
+}
+
+// Added in this fork: tests for the per-match replay recording decision.
+#[cfg(test)]
+mod tests {
+    use super::should_record;
+
+    #[test]
+    fn no_manager_never_records() {
+        assert!(!should_record(1, 2, None));
+    }
+
+    #[test]
+    fn records_when_managed_team_plays_home() {
+        assert!(should_record(3200000718, 2, Some(3200000718)));
+    }
+
+    #[test]
+    fn records_when_managed_team_plays_away() {
+        assert!(should_record(2, 3200000718, Some(3200000718)));
+    }
+
+    #[test]
+    fn skips_unrelated_fixture() {
+        assert!(!should_record(1, 2, Some(3200000718)));
+    }
 }

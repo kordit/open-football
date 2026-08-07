@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+
+{# Added in this fork: interactive club-selection map of Poland. #}
+
+{% block html_title %}{{ i18n.t("map") }} | {{ i18n.t("site_name") }}{% endblock %}
+
+{% block content %}
+<div class="fm-page">
+    {% if let Some(sel) = selected %}
+    <div class="fm-map-l2-head">
+        <a class="fm-map-back" href="/{{ lang }}/map">
+            <i class="fa fa-arrow-left"></i>
+            <span>{{ i18n.t("map") }}</span>
+        </a>
+        <h2 class="fm-map-l2-title">{{ sel.name }}</h2>
+        <span class="fm-map-l2-count">{{ sel.club_count }} {{ i18n.t("clubs") }}</span>
+    </div>
+    {% if sel.districts.is_empty() %}
+    <section class="fm-panel">
+        <div class="fm-panel-head">
+            <h3>{{ i18n.t("districts") }}</h3>
+            <span class="fm-panel-count">0</span>
+        </div>
+    </section>
+    {% endif %}
+    <div class="fm-map-districts">
+        {% for district in sel.districts %}
+        <section class="fm-panel fm-map-district">
+            <div class="fm-panel-head">
+                <h3><i class="fa fa-location-dot"></i> {{ district.name }}</h3>
+                <span class="fm-panel-count">{{ district.clubs.len() }} {{ i18n.t("clubs") }}</span>
+            </div>
+            <div class="fm-map-district-body">
+                {% if !district.leagues.is_empty() %}
+                <div class="fm-map-district-section-label">{{ i18n.t("leagues") }}</div>
+                <div class="fm-map-district-leagues">
+                    {% for league in district.leagues %}
+                    <a class="fm-map-league" href="/{{ lang }}/leagues/{{ league.slug }}">
+                        <span class="fm-map-league-tier" title="{{ i18n.t("leagues") }}">{{ league.tier }}</span>
+                        <span class="fm-map-league-name">{{ league.name }}</span>
+                        <span class="fm-map-league-count">{{ league.club_count }} <i class="fa fa-shield-halved"></i></span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if !district.clubs.is_empty() %}
+                <div class="fm-map-district-section-label">{{ i18n.t("clubs") }}</div>
+                <div class="fm-map-district-clubs">
+                    {% for club in district.clubs %}
+                    <a class="fm-map-club" href="/{{ lang }}/teams/{{ club.slug }}">{{ club.name }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    {% else %}
+    <section class="fm-panel fm-map-panel">
+        <div class="fm-panel-head">
+            <h3><i class="fa fa-map"></i> {{ i18n.t("choose_region") }}</h3>
+            <span class="fm-panel-count">{{ regions.len() }}</span>
+        </div>
+        <div class="fm-map-wrap">
+            <svg class="fm-map-svg" viewBox="0 0 {{ viewbox_width }} {{ viewbox_height }}"
+                 role="img" aria-label="{{ i18n.t("choose_region") }}"
+                 xmlns="http://www.w3.org/2000/svg">
+                {% for region in regions %}
+                {% if region.club_count > 0 %}
+                <a href="/{{ lang }}/map?region={{ region.code }}" aria-label="{{ region.name }}">
+                    <g class="fm-map-region-group">
+                        <path class="fm-map-region fm-map-region-active" data-region="{{ region.code }}"
+                              d="{{ region.path }}">
+                            <title>{{ region.name }} — {{ region.club_count }} {{ i18n.t("clubs") }}</title>
+                        </path>
+                        <g class="fm-map-badge" pointer-events="none">
+                            <circle cx="{{ region.label_x }}" cy="{{ region.label_y }}" r="13"></circle>
+                            <text x="{{ region.label_x }}" y="{{ region.label_y }}">{{ region.club_count }}</text>
+                        </g>
+                    </g>
+                </a>
+                {% else %}
+                <path class="fm-map-region" data-region="{{ region.code }}" d="{{ region.path }}">
+                    <title>{{ region.name }}</title>
+                </path>
+                {% endif %}
+                {% endfor %}
+            </svg>
+        </div>
+        <div class="fm-map-legend">
+            {% for region in regions %}
+            {% if region.club_count > 0 %}
+            <a class="fm-map-legend-item" href="/{{ lang }}/map?region={{ region.code }}">
+                <span class="fm-map-legend-name">{{ region.name }}</span>
+                <span class="fm-map-legend-count">{{ region.club_count }}</span>
+            </a>
+            {% else %}
+            <span class="fm-map-legend-item fm-map-legend-item-empty">
+                <span class="fm-map-legend-name">{{ region.name }}</span>
+                <span class="fm-map-legend-count">0</span>
+            </span>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

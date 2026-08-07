@@ -54,6 +54,17 @@ impl MatchStore {
         Some(result)
     }
 
+    /// Added in this fork: cheap synchronous check whether a stored replay
+    /// (metadata + chunks) exists for a match. Used by the match page to
+    /// decide whether to offer the replay viewer now that recording is
+    /// per-match (managed club) rather than global.
+    pub fn metadata_exists(league_slug: &str, match_id: &str) -> bool {
+        PathBuf::from(MATCH_DIRECTORY)
+            .join(league_slug)
+            .join(format!("{}_metadata.json", match_id))
+            .exists()
+    }
+
     pub async fn get_metadata(league_slug: &str, match_id: &str) -> Option<serde_json::Value> {
         let metadata_file = PathBuf::from(MATCH_DIRECTORY)
             .join(league_slug)

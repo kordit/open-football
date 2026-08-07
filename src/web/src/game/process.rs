@@ -101,7 +101,13 @@ impl ProcessingRun {
             let result = self
                 .handle
                 .block_on(FootballSimulator::simulate(&mut simulator_data));
-            if result.has_match_results() && MatchRuntime::recordings_mode() {
+            // Modified from upstream: storage is no longer gated on the
+            // GLOBAL recordings flag. Any match that actually recorded
+            // position data (global flag OR per-match `Match::record`
+            // stamping for the managed club) gets persisted; matches
+            // without recorded data are skipped inside
+            // `write_match_results`, so headless bulk stays write-free.
+            if result.has_match_results() {
                 self.handle.block_on(Self::write_match_results(result));
             }
 
@@ -165,6 +171,18 @@ impl ProcessingRun {
 
         for match_result in result.match_results {
             if match_result.friendly {
+                continue;
+            }
+
+            // Modified from upstream: only persist matches that actually
+            // carry recorded position data. With per-match recording most
+            // fixtures come back with an empty recording — writing those
+            // would litter match_results/ with empty chunk files.
+            let has_position_data = match_result
+                .details
+                .as_ref()
+                .is_some_and(|d| d.position_data.has_data());
+            if !has_position_data {
                 continue;
             }
 

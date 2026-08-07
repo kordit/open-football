@@ -208,6 +208,15 @@ impl ResultMatchPositionData {
         }
     }
 
+    /// Added in this fork: does this recording actually contain position
+    /// samples? The engine hands back `ResultMatchPositionData::new()`-shaped
+    /// empties for non-recorded matches; the web storage layer uses this to
+    /// persist chunks only for matches that really recorded (per-match
+    /// `Match::record` stamping) instead of gating on the global flag.
+    pub fn has_data(&self) -> bool {
+        !self.ball.is_empty() || !self.players.is_empty()
+    }
+
     /// Build a coarse heatmap (bucket-count grid) for a single player from
     /// their recorded position samples. The output is a `rows x cols` grid,
     /// row-major, where each cell holds the number of position samples that

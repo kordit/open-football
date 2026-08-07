@@ -13,6 +13,8 @@ mod face;
 mod game;
 pub mod i18n;
 mod leagues;
+// Added in this fork: interactive club-selection map of Poland.
+mod map;
 mod r#match;
 mod national_competitions;
 mod player;

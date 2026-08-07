@@ -13,6 +13,7 @@ use crate::face::face_routes;
 use crate::game::game_routes;
 use crate::i18n::{SUPPORTED_LANG_CODES, detect_language};
 use crate::leagues::league_routes;
+use crate::map::routes::map_routes;
 use crate::r#match::routes::match_routes;
 use crate::national_competitions::national_competitions_routes;
 use crate::player::player_routes;
@@ -141,6 +142,8 @@ impl ServerRoutes {
             .merge(playoff_routes())
             .merge(game_routes())
             .merge(league_routes())
+            // Added in this fork: club-selection map.
+            .merge(map_routes())
             .merge(team_routes())
             .merge(player_routes())
             .merge(staff_routes())

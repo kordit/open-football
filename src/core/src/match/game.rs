@@ -19,6 +19,12 @@ pub struct Match {
     /// bit-identically; `None` keeps legacy OS-entropy behaviour. Stamped
     /// by the world matchday dispatch from the pinned sim seed.
     pub seed: Option<u64>,
+    /// Added in this fork: per-match recording override. When true this
+    /// fixture records position data even if the GLOBAL
+    /// `MatchRuntime::recordings_mode()` flag is off. Stamped by the
+    /// world matchday dispatch for matches involving the managed club
+    /// (career mode replays). Friendlies never record either way.
+    pub record: bool,
 }
 
 impl Match {
@@ -39,6 +45,7 @@ impl Match {
             is_friendly,
             is_knockout: false,
             seed: None,
+            record: false,
         }
     }
 
@@ -58,6 +65,7 @@ impl Match {
             is_friendly: false,
             is_knockout: true,
             seed: None,
+            record: false,
         }
     }
 
@@ -85,7 +93,10 @@ impl Match {
         let away_team_id = self.away_squad.team_id;
         let away_team_name = String::from(&self.away_squad.team_name);
 
-        let match_recordings = MatchRuntime::recordings_mode() && !self.is_friendly;
+        // Modified from upstream: per-match `record` flag (managed-club
+        // replays) enables recording even when the global flag is off.
+        let match_recordings =
+            (MatchRuntime::recordings_mode() || self.record) && !self.is_friendly;
         // Modified from upstream: route through the seeded entry point so a
         // stamped per-fixture seed makes the match reproducible.
         let match_result = FootballEngine::<840, 545>::play_seeded(
@@ -129,5 +140,49 @@ impl Match {
             details: Some(match_result),
             friendly: self.is_friendly,
         }
+    }
+}
+
+// Added in this fork: guards for the per-match recording flag defaults.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Tactics;
+    use crate::club::team::tactics::MatchTacticType;
+
+    fn squad(team_id: u32) -> MatchSquad {
+        MatchSquad {
+            team_id,
+            team_name: format!("Team{}", team_id),
+            tactics: Tactics::new(MatchTacticType::T442),
+            main_squad: Vec::new(),
+            substitutes: Vec::new(),
+            captain_id: None,
+            vice_captain_id: None,
+            penalty_taker_id: None,
+            free_kick_taker_id: None,
+            selection_omissions: vec![],
+            coach_snapshot: None,
+        }
+    }
+
+    #[test]
+    fn make_defaults_record_to_false() {
+        let m = Match::make(
+            "m1".to_string(),
+            1,
+            "league",
+            squad(10),
+            squad(20),
+            false,
+        );
+        assert!(!m.record);
+        assert!(m.seed.is_none());
+    }
+
+    #[test]
+    fn make_knockout_defaults_record_to_false() {
+        let m = Match::make_knockout("m2".to_string(), 1, "league", squad(10), squad(20));
+        assert!(!m.record);
     }
 }

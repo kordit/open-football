@@ -25,6 +25,19 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   tests in place of the removed embedded database.
 - `Cargo.toml` — added the `quick` build profile (release semantics, thin
   LTO) for day-to-day simulation runs.
+- `src/web/src/map/` (`mod.rs`, `routes.rs`, `index.html`, `geometry.rs`) —
+  interactive club-selection map of Poland at `GET /{lang}/map`
+  (voivodeship SVG with live club counts; `?region={voivodeship}` drills
+  into that voivodeship's football districts with their leagues and clubs).
+  `geometry.rs` is generated from
+  https://github.com/ppatrzyk/polska-geojson
+  (`wojewodztwa/wojewodztwa-min.geojson`, MIT License, © 2019 Piotr
+  Patrzyk; boundaries derived from GUGiK PRG public-sector open data),
+  projected to a 600×560 viewBox. Powiat-level geometry was deliberately
+  not used: the pyramid's district codes are football okręgi
+  ("warszawa-i", "podhale", "wielkopolskie-iii"), which do not correspond
+  to powiat boundaries, so level 2 renders as a styled district list
+  instead of a sub-map.
 
 ## Modified
 
@@ -52,6 +65,16 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   `saturating_sub`; leagues with fewer than 5 teams underflowed (panic) here.
 - `src/web/src/settings.rs` — added `RunMode` (serve / simulate /
   validate-db), `--database=`, `--no-international`.
-- `src/web/src/lib.rs` — export `RunMode`.
+- `src/web/src/lib.rs` — export `RunMode`; registered the new `map` module.
+- `src/web/src/routes.rs` — merged the club-selection map routes.
+- `src/web/src/views/mod.rs` — added `map_section` / `map_menu` sidebar
+  entries ("Mapa") to the main menus.
+- `src/web/src/countries/list/index.html` — home page links to the
+  club-selection map ("Nowa kariera — wybierz klub z mapy") above the
+  saves panel.
+- `src/web/assets/static/css/style.css` — styles for the club-selection
+  map (voivodeship SVG, legend, district/league/club lists, home CTA).
+- `src/web/assets/i18n/en.json`, `pl.json` — added `map`, `choose_region`,
+  `districts`, `clubs`, `new_career_map` keys.
 - `src/main.rs` — subcommand dispatch; headless modes default to quiet
   logging.

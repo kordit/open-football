@@ -225,7 +225,10 @@ impl FootballSimulator {
 
             // A2: root-level dispatch + per-continent fan-out. Single
             // `engine_pool().play(..)` call across the entire world.
-            wm.process(&mut data.continents, world);
+            // Modified from upstream: thread the managed club id in so
+            // its fixtures get per-match replay recording stamped.
+            let managed_team_id = data.player_manager.as_ref().map(|pm| pm.team_id);
+            wm.process(&mut data.continents, world, managed_team_id);
             wm
         };
         result.panicked_continents = (ContinentPanicMetrics::total() - panicks_before) as u32;

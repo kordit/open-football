@@ -109,6 +109,8 @@ impl<'a> MenuParams<'a> {
         let mut sections = vec![
             home_section(self.i18n, self.lang),
             search_section(self.i18n, self.lang, self.current_path),
+            // Added in this fork: club-selection map entry.
+            map_section(self.i18n, self.lang, self.current_path),
             MenuSection::plain(vec![MenuItem {
                 title: self.country_name.to_string(),
                 active: self.current_path == leagues_url,
@@ -166,6 +168,7 @@ pub fn watchlist_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSe
     vec![
         home_section(i18n, lang),
         search_section(i18n, lang, current_path),
+        map_section(i18n, lang, current_path),
         watchlist_section(i18n, lang, current_path),
     ]
 }
@@ -174,6 +177,28 @@ pub fn search_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSecti
     vec![
         home_section(i18n, lang),
         search_section(i18n, lang, current_path),
+        map_section(i18n, lang, current_path),
+    ]
+}
+
+/// Added in this fork: sidebar entry for the club-selection map.
+fn map_section(i18n: &I18n, lang: &str, current_path: &str) -> MenuSection {
+    let map_url = format!("/{}/map", lang);
+    MenuSection::plain(vec![MenuItem {
+        active: current_path == map_url,
+        title: i18n.t("map").to_string(),
+        url: map_url,
+        icon: "fa-map".to_string(),
+    }])
+}
+
+/// Added in this fork: left-menu for the club-selection map page.
+pub fn map_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSection> {
+    vec![
+        home_section(i18n, lang),
+        search_section(i18n, lang, current_path),
+        map_section(i18n, lang, current_path),
+        watchlist_section(i18n, lang, current_path),
     ]
 }
 
@@ -191,6 +216,7 @@ pub fn about_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSectio
     vec![
         home_section(i18n, lang),
         search_section(i18n, lang, current_path),
+        map_section(i18n, lang, current_path),
         about_section(i18n, lang, current_path),
     ]
 }
