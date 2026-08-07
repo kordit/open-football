@@ -42,12 +42,21 @@ impl DatabaseGenerator {
         // The compiled database predates the `team_level` field, so the
         // bundled UEFA U21 Championship is appended here to give the U21
         // layer a competition to contest until the database ships one.
-        let mut all_configs: Vec<NationalCompetitionConfig> = data
-            .national_competitions
-            .iter()
-            .map(|e| convert_national_competition(e))
-            .collect();
-        all_configs.push(uefa_u21_championship_config());
+        // Modified from upstream: when international football is disabled
+        // (single-country worlds) no national-competition configs are built
+        // at all, including the bundled U21 layer.
+        let mut all_configs: Vec<NationalCompetitionConfig> = if core::settings::international_enabled()
+        {
+            data.national_competitions
+                .iter()
+                .map(|e| convert_national_competition(e))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if core::settings::international_enabled() {
+            all_configs.push(uefa_u21_championship_config());
+        }
 
         // Separate global configs for GlobalCompetitions
         let global_configs: Vec<NationalCompetitionConfig> = all_configs

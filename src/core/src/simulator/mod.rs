@@ -97,17 +97,25 @@ impl FootballSimulator {
         // nationality and their club's continent can differ. Must
         // happen BEFORE the world-level national-competition phase —
         // those matches need a populated squad with world visibility.
-        data.process_world_national_team_callups();
+        // Modified from upstream: skipped entirely when international
+        // football is disabled (single-country worlds).
+        if crate::settings::international_enabled() {
+            data.process_world_national_team_callups();
+        }
 
         // National-team competition matches simulate at the world level
         // so squads can include foreign-based players and post-match
         // stats updates fan out across every continent. Lifted out of
         // the parallel continent phase because squad construction needs
         // read access to clubs in *every* continent.
-        let national_match_results = national_world::WorldNationalCompetitions::simulate(
-            &mut data.continents,
-            current_date.date(),
-        );
+        let national_match_results = if crate::settings::international_enabled() {
+            national_world::WorldNationalCompetitions::simulate(
+                &mut data.continents,
+                current_date.date(),
+            )
+        } else {
+            Vec::new()
+        };
         for match_result in &national_match_results {
             data.match_store
                 .push(match_result.clone(), current_date.date());
@@ -369,13 +377,19 @@ impl FootballSimulator {
         }
 
         // Global competitions (Champions League, World Cup, etc.)
-        GlobalCompetitionSimulator::simulate(data);
+        // Modified from upstream: skipped when international football is
+        // disabled.
+        if crate::settings::international_enabled() {
+            GlobalCompetitionSimulator::simulate(data);
+        }
 
         // Release Int statuses AFTER all matches (continent + global) —
         // a tournament final on the release date should be played
         // before the squad's flags are cleared.
         {
-            data.process_world_national_team_release();
+            if crate::settings::international_enabled() {
+                data.process_world_national_team_release();
+            }
 
             // Move any player whose contract was cleared this tick (positional
             // surplus, free-transfer release, contract expiry) off their old

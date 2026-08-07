@@ -52,13 +52,17 @@ impl ContinentResult {
         }
 
         // Phase 3: Continental Competition Processing
-        if self.is_competition_draw_period(current_date) {
-            self.conduct_competition_draws(data, current_date);
-        }
+        // Modified from upstream: continental club competitions are skipped
+        // entirely when international football is disabled.
+        if crate::settings::international_enabled() {
+            if self.is_competition_draw_period(current_date) {
+                self.conduct_competition_draws(data, current_date);
+            }
 
-        let competition_results = self.simulate_continental_competitions(data, current_date);
-        if let Some(comp_results) = competition_results {
-            self.process_competition_results(comp_results, data, result);
+            let competition_results = self.simulate_continental_competitions(data, current_date);
+            if let Some(comp_results) = competition_results {
+                self.process_competition_results(comp_results, data, result);
+            }
         }
 
         // Phases 2/4/5/6 — continental rankings (monthly), economic zone

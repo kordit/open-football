@@ -846,8 +846,11 @@ impl League {
         }
 
         // Direct rival: both in top 5 or both in bottom 5
+        // Modified from upstream: saturating_sub — leagues smaller than 5
+        // teams (tiny regional groups) underflowed here.
         let both_top = home_pos <= 5 && away_pos <= 5;
-        let both_bottom = home_pos > total_teams - 5 && away_pos > total_teams - 5;
+        let bottom_cutoff = total_teams.saturating_sub(5);
+        let both_bottom = home_pos > bottom_cutoff && away_pos > bottom_cutoff;
         if both_top || both_bottom {
             return 0.8;
         }

@@ -27,7 +27,7 @@ mod watchlist;
 pub mod worker;
 mod workers;
 
-pub use settings::Settings;
+pub use settings::{RunMode, Settings};
 
 pub use ai::{AiConfig, AiJobs, LlmSettings};
 pub use error::{ApiError, ApiResult};

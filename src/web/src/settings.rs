@@ -1,8 +1,27 @@
+// Modified from upstream: added `--database=` / `--no-international` flags
+// and the `serve` / `simulate` / `validate-db` subcommands.
 use core::MatchRuntime;
 use log::info;
 use std::env;
 
+/// What the binary was asked to do. `Serve` (the default) runs the web UI;
+/// `Simulate` runs a headless world simulation; `ValidateDb` loads and
+/// checks a world database file, then exits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunMode {
+    Serve,
+    Simulate,
+    ValidateDb,
+}
+
 pub struct Settings {
+    pub run_mode: RunMode,
+    /// Explicit world database path (`--database=<path>`). When absent the
+    /// loader falls back to `OF_DATABASE_PATH` and then `./polish-database.db`.
+    pub database_path: Option<String>,
+    /// `--no-international`: disable national teams, continental club
+    /// competitions and the bundled U21 layer (single-country worlds).
+    pub no_international: bool,
     pub match_events: bool,
     pub match_recordings: bool,
     pub match_threads: usize,
@@ -17,6 +36,27 @@ pub struct Settings {
 impl Settings {
     pub fn from_env() -> Self {
         let args: Vec<String> = env::args().collect();
+
+        // The first non-flag argument selects the run mode; no argument
+        // means `serve` so existing invocations keep working.
+        let run_mode = args
+            .iter()
+            .skip(1)
+            .find(|arg| !arg.starts_with("--"))
+            .map(|cmd| match cmd.as_str() {
+                "simulate" => RunMode::Simulate,
+                "validate-db" => RunMode::ValidateDb,
+                _ => RunMode::Serve,
+            })
+            .unwrap_or(RunMode::Serve);
+
+        let database_path = args
+            .iter()
+            .find(|arg| arg.starts_with("--database="))
+            .and_then(|arg| arg.strip_prefix("--database="))
+            .map(str::to_string);
+
+        let no_international = args.iter().any(|arg| arg == "--no-international");
 
         let match_events = args.iter().any(|arg| arg == "--match-events");
 
@@ -56,6 +96,9 @@ impl Settings {
             .unwrap_or(18001);
 
         Settings {
+            run_mode,
+            database_path,
+            no_international,
             match_events,
             match_recordings,
             match_threads,
@@ -66,6 +109,10 @@ impl Settings {
     }
 
     pub fn apply(&self) {
+        if let Some(path) = &self.database_path {
+            database::set_database_path(path.clone());
+        }
+        core::settings::set_international_enabled(!self.no_international);
         MatchRuntime::set_events_mode(self.match_events);
         MatchRuntime::set_recordings_mode(self.match_recordings);
         MatchRuntime::init_engine_pool(self.match_threads);
@@ -73,6 +120,12 @@ impl Settings {
     }
 
     pub fn log(&self) {
+        if let Some(path) = &self.database_path {
+            info!("World database: {}", path);
+        }
+        if self.no_international {
+            info!("International football disabled (--no-international)");
+        }
         if self.match_events {
             info!("Match events recording enabled");
         }

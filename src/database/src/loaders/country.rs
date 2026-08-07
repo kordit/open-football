@@ -90,31 +90,3 @@ impl CountryLoader {
             .unwrap_or_default()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::CountryLoader;
-
-    #[test]
-    fn named_domestic_cups_resolve_onto_countries() {
-        let countries = CountryLoader::load();
-        let cup_name = |slug: &str| {
-            countries
-                .iter()
-                .find(|c| c.slug == slug)
-                .unwrap_or_else(|| panic!("country {slug} missing"))
-                .domestic_cup
-                .as_ref()
-                .map(|c| c.name.as_str())
-        };
-
-        assert_eq!(cup_name("england"), Some("FA Cup"));
-        assert_eq!(cup_name("spain"), Some("Copa del Rey"));
-        assert_eq!(cup_name("italy"), Some("Coppa Italia"));
-        assert_eq!(cup_name("germany"), Some("DFB-Pokal"));
-
-        // A country with no configured cup resolves to `None`; the runtime
-        // generator gives it a "{Country} Cup" fallback.
-        assert_eq!(cup_name("afghanistan"), None);
-    }
-}

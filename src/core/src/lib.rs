@@ -6,6 +6,7 @@ pub mod continent;
 pub mod country;
 pub mod league;
 pub mod r#match;
+pub mod settings;
 pub mod shared;
 pub mod simulator;
 pub mod transfers;

@@ -10,6 +10,10 @@ pub mod national;
 pub mod players;
 
 pub use club::*;
+pub use compiled::{
+    CompiledDatabase, DATABASE_PATH_ENV, DEFAULT_DATABASE_FILE, database_path, load_from_path,
+    set_database_path,
+};
 pub use continent::*;
 pub use country::*;
 pub use data_tree::*;

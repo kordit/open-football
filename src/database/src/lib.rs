@@ -5,10 +5,11 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub use loaders::{
-    ClubEntity, ClubTeamEntity, ContinentEntity, ContinentLoader, CountryEntity, CountryLoader,
-    DataTreeLoader, DomesticCupEntity, ForeignPlayerEntry, LeagueEntity, NamesByCountryEntity,
-    NationalCompetitionEntity, NationalCompetitionLoader, OdbContract, OdbLoan, OdbPlayer,
-    OdbPosition, OdbReputation, PlayersOdb,
+    ClubEntity, ClubTeamEntity, CompiledDatabase, ContinentEntity, ContinentLoader, CountryEntity,
+    CountryLoader, DATABASE_PATH_ENV, DEFAULT_DATABASE_FILE, DataTreeLoader, DomesticCupEntity,
+    ForeignPlayerEntry, LeagueEntity, NamesByCountryEntity, NationalCompetitionEntity,
+    NationalCompetitionLoader, OdbContract, OdbLoan, OdbPlayer, OdbPosition, OdbReputation,
+    PlayersOdb, database_path, load_from_path, set_database_path,
 };
 
 pub use generators::DatabaseGenerator;

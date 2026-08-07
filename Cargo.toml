@@ -42,6 +42,15 @@ inherits = "release"
 debug = true
 strip = false
 
+# Added in this fork: fast-compile optimized profile for day-to-day
+# simulation runs. Inherits release semantics (debug assertions OFF — the
+# match engine carries debug-only oracle checks that are not meant to gate
+# gameplay runs) but trades fat LTO for compile time.
+[profile.quick]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+
 [dependencies]
 simulator_core = { path = "src/core", package = "core" }
 web = { path = "src/web" }

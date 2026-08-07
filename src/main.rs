@@ -16,6 +16,10 @@ static GLOBAL: Jemalloc = Jemalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+// Modified from upstream: added the `simulate` and `validate-db` headless
+// subcommands (see src/headless.rs) and external world-database loading.
+mod headless;
+
 use database::{DatabaseGenerator, DatabaseLoader};
 use env_logger::Env;
 use log::info;
@@ -25,21 +29,32 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use web::{
     AiConfig, AiJobs, DistributedDispatcher, EventI18nManager, FootballSimulatorServer,
-    GameAppData, I18nManager, NewsI18nManager, Settings, WorkerRegistry, WorkerServer,
+    GameAppData, I18nManager, NewsI18nManager, RunMode, Settings, WorkerRegistry, WorkerServer,
 };
 
 #[tokio::main]
 async fn main() {
     color_eyre::install().unwrap();
 
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let settings = Settings::from_env();
+
+    let default_log = match settings.run_mode {
+        // Headless modes print their own reports; keep the loader quiet.
+        RunMode::Simulate | RunMode::ValidateDb => "warn",
+        RunMode::Serve => "debug",
+    };
+    env_logger::Builder::from_env(Env::default().default_filter_or(default_log)).init();
 
     info!("SIMD: {}", simulator_core::utils::cpu::simd_kernel_name());
 
-    let settings = Settings::from_env();
-
     settings.apply();
     settings.log();
+
+    match settings.run_mode {
+        RunMode::Simulate => std::process::exit(headless::run_simulate()),
+        RunMode::ValidateDb => std::process::exit(headless::run_validate_db()),
+        RunMode::Serve => {}
+    }
 
     // Worker mode: skip DB load + UI, just serve match RPCs.
     if settings.worker_mode {

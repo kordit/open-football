@@ -1,0 +1,14 @@
+Polish Football Manager Engine
+==============================
+
+This product includes software developed by Artemov Ivan (ZOXEXIVO) and the
+Open Football contributors (https://github.com/ZOXEXIVO/open-football),
+licensed under the Apache License, Version 2.0.
+
+This is a modified fork of Open Football. Modifications are documented in
+FORK_CHANGES.md and marked with "Modified from upstream" notices in the
+affected source files, as required by Section 4(b) of the Apache License 2.0.
+
+The upstream embedded world database (src/database/src/data/database.db) has
+been removed from this fork. This fork loads an externally supplied world
+database generated from independent data sources.

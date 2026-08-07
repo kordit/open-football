@@ -401,14 +401,6 @@ mod tests {
         );
     }
 
-    /// Smoke test: the embedded compiled DB loads and contains a non-trivial
-    /// number of players.
-    #[test]
-    fn embedded_players_load() {
-        let odb = PlayersOdb::load().expect("embedded DB should contain players");
-        assert!(odb.max_player_id().unwrap_or(0) > 0);
-    }
-
     /// Sortitoutsi exports loanees twice — once at the parent with the loan
     /// block, once at the borrower without it. Both records key into the
     /// borrower's bucket; only the record carrying the loan info should
