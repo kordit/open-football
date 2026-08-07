@@ -3,6 +3,7 @@ use crate::utils::FloatUtils;
 use chrono::{Datelike, Duration, NaiveDate};
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ClubSponsorship {
     pub sponsorship_contracts: Vec<ClubSponsorshipContract>,
 }
@@ -202,6 +203,7 @@ fn generate_sponsor_name(reputation: ReputationLevel) -> String {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ClubSponsorshipContract {
     pub sponsor_name: String,
     pub wage: i32,

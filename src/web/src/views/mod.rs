@@ -106,7 +106,7 @@ impl<'a> MenuParams<'a> {
         let senior_url = format!("/{}/countries/{}", self.lang, self.country_slug);
         let u21_url = format!("/{}/countries/{}/u21", self.lang, self.country_slug);
         let leagues_url = format!("/{}/countries/{}/leagues", self.lang, self.country_slug);
-        vec![
+        let mut sections = vec![
             home_section(self.i18n, self.lang),
             search_section(self.i18n, self.lang, self.current_path),
             MenuSection::plain(vec![MenuItem {
@@ -115,7 +115,11 @@ impl<'a> MenuParams<'a> {
                 url: leagues_url,
                 icon: "fa-home".to_string(),
             }]),
-            MenuSection::plain(vec![
+        ];
+        // Modified from upstream: national-team squads are hidden when
+        // international football is disabled (--no-international).
+        if core::settings::international_enabled() {
+            sections.push(MenuSection::plain(vec![
                 MenuItem {
                     active: self.current_path == senior_url,
                     title: format!("{} {}", self.country_name, self.i18n.t("team")),
@@ -133,8 +137,9 @@ impl<'a> MenuParams<'a> {
                     url: u21_url,
                     icon: "fa-users".to_string(),
                 },
-            ]),
-        ]
+            ]));
+        }
+        sections
     }
 }
 
@@ -205,6 +210,11 @@ fn continental_section(
     current_path: &str,
     continent_id: u32,
 ) -> Option<MenuSection> {
+    // Modified from upstream: no continental-cup links when international
+    // football is disabled.
+    if !core::settings::international_enabled() {
+        return None;
+    }
     let star = |key: &str, path: String| MenuItem {
         active: current_path == path,
         title: i18n.t(key).to_string(),
@@ -232,14 +242,18 @@ fn continental_section(
     }
 }
 
-fn national_section(i18n: &I18n, lang: &str, current_path: &str) -> MenuSection {
+fn national_section(i18n: &I18n, lang: &str, current_path: &str) -> Option<MenuSection> {
+    // Modified from upstream: hidden when international football is disabled.
+    if !core::settings::international_enabled() {
+        return None;
+    }
     let nat_url = format!("/{}/national-competitions", lang);
-    MenuSection::plain(vec![MenuItem {
+    Some(MenuSection::plain(vec![MenuItem {
         active: current_path == nat_url,
         title: i18n.t("national_competitions").to_string(),
         url: nat_url,
         icon: "fa-flag".to_string(),
-    }])
+    }]))
 }
 
 fn watchlist_section(i18n: &I18n, lang: &str, current_path: &str) -> MenuSection {
@@ -362,7 +376,9 @@ pub fn cup_menu(
     if let Some(s) = continental_section(p.i18n, p.lang, p.current_path, continent_id) {
         sections.push(s);
     }
-    sections.push(national_section(p.i18n, p.lang, p.current_path));
+    if let Some(s) = national_section(p.i18n, p.lang, p.current_path) {
+        sections.push(s);
+    }
     sections.push(watchlist_section(p.i18n, p.lang, p.current_path));
     sections
 }
@@ -390,7 +406,9 @@ pub fn playoff_menu(
     if let Some(s) = continental_section(p.i18n, p.lang, p.current_path, continent_id) {
         sections.push(s);
     }
-    sections.push(national_section(p.i18n, p.lang, p.current_path));
+    if let Some(s) = national_section(p.i18n, p.lang, p.current_path) {
+        sections.push(s);
+    }
     sections.push(watchlist_section(p.i18n, p.lang, p.current_path));
     sections
 }
@@ -465,7 +483,9 @@ pub fn country_menu(
     if let Some(s) = continental_section(p.i18n, p.lang, p.current_path, continent_id) {
         sections.push(s);
     }
-    sections.push(national_section(p.i18n, p.lang, p.current_path));
+    if let Some(s) = national_section(p.i18n, p.lang, p.current_path) {
+        sections.push(s);
+    }
     sections.push(watchlist_section(p.i18n, p.lang, p.current_path));
 
     sections
@@ -516,13 +536,16 @@ fn club_competitions_section(i18n: &I18n, lang: &str, current_path: &str) -> Men
 }
 
 fn continental_competitions_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSection> {
-    vec![
+    let mut sections = vec![
         home_section(i18n, lang),
         search_section(i18n, lang, current_path),
         club_competitions_section(i18n, lang, current_path),
-        national_section(i18n, lang, current_path),
-        watchlist_section(i18n, lang, current_path),
-    ]
+    ];
+    if let Some(s) = national_section(i18n, lang, current_path) {
+        sections.push(s);
+    }
+    sections.push(watchlist_section(i18n, lang, current_path));
+    sections
 }
 
 pub fn champions_league_menu(i18n: &I18n, lang: &str, current_path: &str) -> Vec<MenuSection> {
@@ -565,7 +588,9 @@ pub fn national_competitions_menu(
     ];
 
     if competitions.is_empty() {
-        sections.push(national_section(i18n, lang, current_path));
+        if let Some(s) = national_section(i18n, lang, current_path) {
+            sections.push(s);
+        }
     } else {
         let items: Vec<MenuItem> = competitions
             .iter()

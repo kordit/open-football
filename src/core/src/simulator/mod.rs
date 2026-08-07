@@ -5,6 +5,7 @@ mod league_newsroom;
 mod loan_wages;
 mod matchday;
 mod newsroom;
+pub mod persistence;
 mod result;
 mod seeding;
 

@@ -3,6 +3,7 @@
 /// the renderer pick recognition-specific copy without re-deriving the
 /// kind from the event-type enum at render time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum RecognitionEventKind {
     PlayerOfTheWeek,
     YoungPlayerOfTheWeek,
@@ -51,6 +52,7 @@ impl RecognitionEventKind {
 /// All quantitative fields are `Option` so emit sites can attach what's
 /// available without forcing missing-data placeholders.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct RecognitionEventContext {
     pub kind: RecognitionEventKind,
     pub league_id: Option<u32>,

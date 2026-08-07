@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct Location {
     pub city_id: u32,
     /// Added in this fork: hierarchical region code (e.g. "lu-zamosc") for

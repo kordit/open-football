@@ -2,6 +2,7 @@ use deunicode::deunicode;
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FullName {
     pub first_name: String,
     pub last_name: String,

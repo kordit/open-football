@@ -7,6 +7,7 @@
 use chrono::NaiveDate;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum PromiseType {
     TransferBudget,
     FacilityImprovement,
@@ -17,6 +18,7 @@ pub enum PromiseType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum PromiseStatus {
     #[default]
     Active,
@@ -25,6 +27,7 @@ pub enum PromiseStatus {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct BoardPromise {
     pub promise_type: PromiseType,
     pub created_at: NaiveDate,
@@ -70,6 +73,7 @@ impl BoardPromise {
 /// resolution / trust-bookkeeping logic lives next to the data instead of
 /// leaking into the board's `simulate`.
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PromiseLedger {
     promises: Vec<BoardPromise>,
 }

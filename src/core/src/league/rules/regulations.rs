@@ -6,6 +6,7 @@ use chrono::{Duration, NaiveDate};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct LeagueRegulations {
     /// player_id → matches still to serve. Mirrors the same counter on
     /// `Player.player_attributes.suspension_matches`; the league copy is
@@ -34,6 +35,7 @@ pub struct LeagueRegulations {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FFPThresholds {
     /// Rolling deficit (annual) above which a club is warned but not
     /// sanctioned.
@@ -269,6 +271,7 @@ impl LeagueRegulations {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FFPCase {
     pub club_id: u32,
     pub violation_type: FFPViolationType,
@@ -291,6 +294,7 @@ pub struct FFPCase {
 pub type FFPViolation = FFPCase;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum FFPViolationType {
     ExcessiveDeficit,
     UnpaidDebts,
@@ -298,6 +302,7 @@ pub enum FFPViolationType {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum FFPSanction {
     Warning,
     Fine(u32),
@@ -306,6 +311,7 @@ pub enum FFPSanction {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct DisciplinaryCase {
     pub player_id: u32,
     pub incident_type: String,

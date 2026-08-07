@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CountrySettings {
     pub pricing: CountryPricing,
     pub skin_colors: SkinColorDistribution,
@@ -14,6 +15,7 @@ impl Default for CountrySettings {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CountryPricing {
     pub price_level: f32,
 }
@@ -25,6 +27,7 @@ impl Default for CountryPricing {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct SkinColorDistribution {
     pub white: u8,
     pub black: u8,

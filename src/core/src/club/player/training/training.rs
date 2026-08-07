@@ -32,6 +32,7 @@ struct ReasonInputs {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerTraining {
     /// Rolling average of actual training session quality (1.0-20.0).
     /// Measures execution quality, not just effort/personality.

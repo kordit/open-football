@@ -2,6 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TeamType {
     Main = 0,
     B = 1,

@@ -41,6 +41,7 @@ use rayon::prelude::*;
 /// is reachable, but the variant exists so callers can pattern-match
 /// without breaking when slice C lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum CandidateSource {
     FreeAgent,
     Employed { current_club_id: u32 },
@@ -50,6 +51,7 @@ pub enum CandidateSource {
 /// composite ranking value; `target_salary` is what the candidate
 /// would expect to be offered (the board's actual offer may flex).
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ManagerCandidate {
     pub staff_id: u32,
     pub fit_score: i32,
@@ -79,6 +81,7 @@ struct EmployedCandidateRaw<'a> {
 /// — a global registry so cascade hires (poached source club starting
 /// its own search) can see the chain.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ApproachState {
     /// The requesting club has notified the source club. Awaiting
     /// permission-to-talk + compensation demand.
@@ -102,6 +105,7 @@ pub enum ApproachState {
 /// `SimulatorData.pending_manager_approaches` and ticked daily by the
 /// world-level manager-market phase.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ManagerApproach {
     pub requesting_club_id: u32,
     pub source_club_id: u32,

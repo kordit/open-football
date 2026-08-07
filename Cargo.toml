@@ -55,6 +55,7 @@ codegen-units = 16
 simulator_core = { path = "src/core", package = "core" }
 web = { path = "src/web" }
 database = { path = "src/database" }
+chrono = "0.4.45"
 log = { version = "0.4.33", features = ["release_max_level_info"] }
 env_logger = "0.11.11"
 color-eyre = "0.6.5"

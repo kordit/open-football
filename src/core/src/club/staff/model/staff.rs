@@ -16,12 +16,14 @@ use std::slice::Iter;
 use std::slice::IterMut;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffEvent {
     pub event_type: StaffEventType,
     pub days_ago: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum StaffEventType {
     TrainingConducted,
     MatchObserved,
@@ -51,6 +53,7 @@ pub enum StaffEventType {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct Staff {
     pub id: u32,
     pub full_name: FullName,
@@ -97,6 +100,7 @@ pub struct Staff {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffCollection {
     pub staffs: Vec<Staff>,
 
@@ -466,6 +470,7 @@ impl StaffCollection {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffPerformance {
     pub training_effectiveness: f32,  // 0-1 multiplier
     pub player_development_rate: f32, // 0-1 multiplier
@@ -475,6 +480,7 @@ pub struct StaffPerformance {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum CoachingStyle {
     Authoritarian,    // Strict discipline, high demands
     Democratic,       // Collaborative, player input
@@ -1385,6 +1391,7 @@ pub enum RelationshipEvent {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum StaffLicenseType {
     ContinentalPro,
     ContinentalA,
@@ -1415,6 +1422,7 @@ impl Default for CoachingStyle {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffTrainingSession {
     pub session_type: TrainingType,
     pub intensity: TrainingIntensity,

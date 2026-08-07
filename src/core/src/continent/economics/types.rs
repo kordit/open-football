@@ -1,6 +1,7 @@
 use crate::continent::ContinentalRankings;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct EconomicZone {
     pub tv_rights_pool: f64,
     pub sponsorship_value: f64,

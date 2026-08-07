@@ -10,6 +10,7 @@ use chrono::NaiveDate;
 /// parallel youth side selected from a separate (younger) candidate pool
 /// with its own caps, schedule, and match-day statuses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum NationalTeamLevel {
     #[default]
     Senior,
@@ -31,6 +32,7 @@ impl NationalTeamLevel {
 }
 
 #[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct NationalTeamStaffMember {
     pub first_name: String,
     pub last_name: String,
@@ -40,6 +42,7 @@ pub struct NationalTeamStaffMember {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum NationalTeamStaffRole {
     Manager,
     AssistantManager,
@@ -61,6 +64,7 @@ impl NationalTeamStaffRole {
 }
 
 #[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct NationalSquadPlayer {
     pub player_id: u32,
     pub club_id: u32,
@@ -84,6 +88,7 @@ pub enum SquadPick<'a> {
 /// Surfaces in the squad UI and in debug logs so call-ups are auditable
 /// instead of looking arbitrary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum CallUpReason {
     /// High ability and world reputation — the manager always picks them.
     KeyPlayer,
@@ -144,6 +149,7 @@ impl CallUpReason {
 }
 
 #[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct NationalTeamFixture {
     pub date: NaiveDate,
     pub opponent_country_id: u32,
@@ -155,6 +161,7 @@ pub struct NationalTeamFixture {
 }
 
 #[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct NationalTeamMatchResult {
     pub home_score: u8,
     pub away_score: u8,

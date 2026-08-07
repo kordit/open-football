@@ -15,6 +15,7 @@ pub const SUPPORTED_LANGUAGES: &[(&str, &str, &str)] = &[
     ("es", "es", "Español"),
     ("fr", "fr", "Français"),
     ("de", "de", "Deutsch"),
+    ("pl", "pl", "Polski"),
     ("pt", "pt", "Português"),
     ("ru", "ru", "Русский"),
     ("zh", "cn", "繁體中文"),
@@ -22,7 +23,8 @@ pub const SUPPORTED_LANGUAGES: &[(&str, &str, &str)] = &[
     ("ja", "jp", "日本語"),
 ];
 
-pub const SUPPORTED_LANG_CODES: &[&str] = &["en", "es", "fr", "de", "pt", "ru", "zh", "tr", "ja"];
+pub const SUPPORTED_LANG_CODES: &[&str] =
+    &["en", "es", "fr", "de", "pl", "pt", "ru", "zh", "tr", "ja"];
 
 pub const DEFAULT_LANGUAGE: &str = "en";
 
@@ -167,7 +169,7 @@ impl I18n {
         match self.lang.as_str() {
             "en" => format!("{} {} {}", d, month_name, y),
             "es" | "fr" | "pt" => format!("{:02}/{:02}/{}", d, m, y),
-            "de" | "ru" | "tr" => format!("{:02}.{:02}.{}", d, m, y),
+            "de" | "pl" | "ru" | "tr" => format!("{:02}.{:02}.{}", d, m, y),
             "zh" | "ja" => format!("{}年{:02}月{:02}日", y, m, d),
             _ => format!("{:02}.{:02}.{}", d, m, y),
         }
@@ -207,6 +209,19 @@ impl I18n {
             "ru" => {
                 let (unit, teen) = (n % 10, n % 100);
                 if unit == 1 && teen != 11 {
+                    0
+                } else if (2..=4).contains(&unit) && !(12..=14).contains(&teen) {
+                    1
+                } else {
+                    2
+                }
+            }
+            // West-Slavic three-way: 1 rok, 2 lata, 5 lat — unlike Russian,
+            // only exactly one takes the first form (21 lat, 31 lat), while
+            // 2–4 outside the teens take the second (22 lata, 34 lata).
+            "pl" => {
+                let (unit, teen) = (n % 10, n % 100);
+                if n == 1 {
                     0
                 } else if (2..=4).contains(&unit) && !(12..=14).contains(&teen) {
                     1
@@ -437,6 +452,7 @@ mod tests {
         ("es", include_bytes!("../../assets/i18n/es.json")),
         ("fr", include_bytes!("../../assets/i18n/fr.json")),
         ("ja", include_bytes!("../../assets/i18n/ja.json")),
+        ("pl", include_bytes!("../../assets/i18n/pl.json")),
         ("pt", include_bytes!("../../assets/i18n/pt.json")),
         ("ru", include_bytes!("../../assets/i18n/ru.json")),
         ("tr", include_bytes!("../../assets/i18n/tr.json")),

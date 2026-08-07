@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum RegulationSlotKind {
     HomegrownQuota,
     NonEuQuota,
@@ -22,6 +23,7 @@ impl RegulationSlotKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum RegulationOutcomeKind {
     Omitted,
     Registered,
@@ -44,6 +46,7 @@ impl RegulationOutcomeKind {
 /// to free a non-EU slot for the new signing" rather than "Squad
 /// registration omitted".
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct RegulationEventContext {
     pub outcome: RegulationOutcomeKind,
     pub slot_kind: RegulationSlotKind,

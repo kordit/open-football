@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 /// can read real calendar distance to the next match. Friendlies are
 /// excluded — they do not earn the same MD-1 / MD-2 protection.
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TeamFixtureWindow {
     /// Date this window was last refreshed. Lets training tell the
     /// difference between "no fixtures because there are none" and

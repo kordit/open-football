@@ -27,6 +27,7 @@ use crate::{
 /// multipliers. The impact is profile/visibility only — it never feeds
 /// back into ability or potential.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum AwardReputationKind {
     PlayerOfTheWeek,
     YoungPlayerOfTheWeek,
@@ -164,6 +165,7 @@ impl AwardReputationInput {
 /// the per-league archives can't do once their retention windows expire.
 /// `league_id` is `None` for global awards (Continental / World POY).
 #[derive(Debug, Clone, Copy)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct AwardTimelineEntry {
     pub date: NaiveDate,
     pub kind: AwardReputationKind,
@@ -184,6 +186,7 @@ const TIMELINE_MAX: usize = 1024;
 /// retention-bounded, so they can't be used to render a "across all
 /// seasons" tally on the player page.
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerAwardsCount {
     pub player_of_the_week: u16,
     pub young_player_of_the_week: u16,

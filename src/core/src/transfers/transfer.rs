@@ -16,6 +16,7 @@ impl PlayerTransfer {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CompletedTransfer {
     pub player_id: u32,
     pub player_name: String,
@@ -32,6 +33,7 @@ pub struct CompletedTransfer {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferType {
     Permanent,
     Loan(NaiveDate), // End date

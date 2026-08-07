@@ -150,6 +150,7 @@ pub struct SettlementRatingAdjustment {
 /// means the player reacts to a new environment as part of his own
 /// processing, alongside happiness, language, integration, etc.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PendingSigning {
     pub previous_salary: Option<u32>,
     pub fee: f64,

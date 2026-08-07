@@ -12,6 +12,7 @@
 /// member-owned clubs answer to supporters, state-backed owners chase
 /// trophies regardless of cash, private equity obsesses over resale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum OwnershipType {
     /// Fan/member owned (Socios model). Reacts hardest to supporter mood,
     /// allergic to debt and unpopular sales.
@@ -60,6 +61,7 @@ impl OwnershipType {
 /// Persistent ownership submodel. Knobs are 0-100 so they compose into
 /// smooth multipliers rather than hard switches.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct OwnershipModel {
     pub ownership_type: OwnershipType,
     /// Spending power independent of current cash — a rich owner can

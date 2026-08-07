@@ -4,6 +4,7 @@
 /// standards" instead of the generic "Had a disagreement with a
 /// teammate" line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TeammateConflictReason {
     /// Difference in how seriously each player took training.
     TrainingStandards,
@@ -71,6 +72,7 @@ impl TeammateConflictReason {
 /// "on the training ground", "in front of the cameras" copy variant so
 /// the same reason reads differently depending on the setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ConflictLocation {
     TrainingGround,
     DressingRoom,
@@ -98,6 +100,7 @@ impl ConflictLocation {
 /// captured by the emit site when known and skipped otherwise — the
 /// renderer hides whatever is missing rather than fabricating it.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TeammateConflictContext {
     pub reason: TeammateConflictReason,
     pub location: ConflictLocation,

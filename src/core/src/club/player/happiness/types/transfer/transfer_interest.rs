@@ -5,6 +5,7 @@ use crate::club::player::contract::PlayerSquadStatus;
 /// interest is, from a single scout sighting to a formal bid being
 /// negotiated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestStage {
     ScoutWatched,
     Shortlisted,
@@ -58,6 +59,7 @@ impl TransferInterestStage {
 /// line — a scout sighting reads differently from an agent leak or a
 /// confirmed approach.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestSource {
     ScoutAttendance,
     AgentLeak,
@@ -96,6 +98,7 @@ impl TransferInterestSource {
 /// Drives whether the rumour reads as a step up, a return home, an
 /// escape route, or just speculation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestKind {
     StepUp,
     LateralMove,
@@ -152,6 +155,7 @@ impl TransferInterestKind {
 /// personality + context — the same rumour produces different reactions
 /// for an ambitious star vs a loyal squad regular.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestReaction {
     Flattered,
     Focused,
@@ -205,6 +209,7 @@ impl TransferInterestReaction {
 /// produces a meaningfully different reaction from a "better playing
 /// time" link.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferSportingFit {
     ClearUpgrade,
     BiggerClubButHarderMinutes,
@@ -237,6 +242,7 @@ impl TransferSportingFit {
 /// the renderer picks the most informative atom to surface as a
 /// supporting sentence next to the main reason.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestEvidence {
     BiggerClub,
     BiggerLeague,
@@ -360,6 +366,7 @@ impl TransferInterestEvidence {
 /// `player_reaction` axes are required: a transfer-interest event
 /// without any of those four would not communicate anything useful.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TransferInterestContext {
     pub interested_club_id: Option<u32>,
     pub interested_league_id: Option<u32>,

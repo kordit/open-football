@@ -755,6 +755,7 @@ impl TeamTraining {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TrainingType {
     // Physical Training
     #[default]
@@ -807,6 +808,7 @@ pub struct TrainingSession {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TrainingIntensity {
     VeryLight, // 20-40% max effort - recovery sessions
     Light,     // 40-60% max effort - technical work
@@ -1554,6 +1556,7 @@ impl GoalkeepingGains {
 // ============== Individual Player Training Plans ==============
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct IndividualTrainingPlan {
     pub player_id: u32,
     pub focus_areas: Vec<TrainingFocus>,
@@ -1566,6 +1569,7 @@ pub struct IndividualTrainingPlan {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TrainingFocus {
     WeakFootImprovement,
     PositionRetraining(PlayerPositionType),
@@ -1576,6 +1580,7 @@ pub enum TrainingFocus {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SkillType {
     FreeKicks,
     Penalties,
@@ -1587,6 +1592,7 @@ pub enum SkillType {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SpecialInstruction {
     ExtraGymWork,
     DietProgram,

@@ -2,6 +2,7 @@ use chrono::NaiveDate;
 use log::debug;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct InternationalCompetition {
     pub name: String,
     pub competition_type: CompetitionType,
@@ -17,6 +18,7 @@ impl InternationalCompetition {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum CompetitionType {
     ChampionsLeague,
     EuropaLeague,

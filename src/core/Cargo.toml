@@ -30,10 +30,18 @@ match-logs = []
 match-stub = []
 
 [dependencies]
-chrono = "0.4.45"
+chrono = { version = "0.4.45", features = ["serde"] }
+# Save-file (world persistence) codec: bincode for the struct graph,
+# zstd for on-disk compression. Same bincode major as the web worker
+# wire protocol so the two never drift apart.
+bincode = { version = "2.0", features = ["serde"] }
+zstd = "0.13"
 rand = "0.10.2"
 rayon = "1.12.0"
-serde = { version = "1.0.229", features = ["derive"] }
+# "rc" enables Serialize/Deserialize for Arc — the world graph shares
+# per-country name-generator data behind an Arc; a load rebuilds each
+# Arc independently (no cross-Arc dedup), which is fine for that data.
+serde = { version = "1.0.229", features = ["derive", "rc"] }
 log = "0.4.33"
 itertools = "0.15.0"
 serde_json = "1.0"

@@ -14,6 +14,7 @@
 /// competition-specific copy ("Won the FA Cup" vs "Won the league
 /// title") without parsing the event type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TrophyKind {
     /// League / divisional championship.
     LeagueTitle,
@@ -43,6 +44,7 @@ impl TrophyKind {
 /// `Option` so emit sites attach what they know — missing fields
 /// collapse to the trophy-kind line on the renderer.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TrophyEventContext {
     pub trophy_kind: TrophyKind,
     /// Identifier of the underlying competition. For domestic cups this

@@ -53,6 +53,7 @@ pub struct PersonAttributes {
 }
 
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PersonBehaviour {
     pub state: PersonBehaviourState,
 }
@@ -84,6 +85,7 @@ impl PersonBehaviour {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum PersonBehaviourState {
     Poor,
     #[default]

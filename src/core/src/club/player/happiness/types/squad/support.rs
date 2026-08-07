@@ -1,6 +1,7 @@
 /// Where the support / approval came from. Drives the renderer's
 /// "who reacted" line and the headline variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SupportSource {
     Manager,
     /// Reserved for future use — captain / senior pro speech moments.
@@ -27,6 +28,7 @@ impl SupportSource {
 /// Where the moment played out. Drives setting-aware copy ("private
 /// chat", "in front of the home crowd", "in the dressing room").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SupportSetting {
     PrivateTalk,
     TrainingGround,
@@ -55,6 +57,7 @@ impl SupportSetting {
 /// adding renderer copy in every locale, so we want the surface to stay
 /// finite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SupportTrigger {
     HighRating,
     PlayerOfMatch,
@@ -101,6 +104,7 @@ impl SupportTrigger {
 /// support context can carry the phase without dragging the team-talks
 /// module into the events / renderer crates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SupportMatchPhase {
     PreMatch,
     HalfTime,
@@ -123,6 +127,7 @@ impl SupportMatchPhase {
 /// closed enum so the renderer can pick deterministic copy without
 /// importing the team-talks types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum SupportTone {
     Praise,
     Criticise,
@@ -158,6 +163,7 @@ impl SupportTone {
 /// (`source`, `setting`, `trigger`), so partial information is never a
 /// blocker — the renderer only references the fields it has.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct SupportEventContext {
     pub source: SupportSource,
     pub setting: SupportSetting,

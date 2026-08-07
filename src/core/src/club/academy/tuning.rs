@@ -32,6 +32,7 @@ pub const TARGET_ACADEMY_SIZE_BY_TIER: [(u8, u8); 11] = [
 /// `ClubAcademy` at construction so per-club overrides remain possible
 /// later without touching the rest of the code.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct AcademyTuning {
     /// Month (1..12) the annual intake fires.
     pub intake_month: u32,

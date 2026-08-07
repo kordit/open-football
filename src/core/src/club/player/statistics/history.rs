@@ -5,6 +5,7 @@ use chrono::NaiveDate;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerStatisticsHistory {
     /// Frozen history from completed seasons. Never modified after write.
     pub items: Vec<PlayerStatisticsHistoryItem>,
@@ -44,6 +45,7 @@ pub struct PlayerStatisticsHistory {
 /// (transfer / loan / season end). Read back by the player history page
 /// to merge continental appearances into the season's league line.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ContinentalSeasonStats {
     pub season_year: u16,
     pub team_slug: String,
@@ -51,6 +53,7 @@ pub struct ContinentalSeasonStats {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerStatisticsHistoryItem {
     pub season: Season,
     pub team_name: String,
@@ -65,6 +68,7 @@ pub struct PlayerStatisticsHistoryItem {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CurrentSeasonEntry {
     pub team_name: String,
     pub team_slug: String,

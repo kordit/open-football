@@ -5,6 +5,7 @@ use crate::club::staff::StaffCoaching;
 // ─── PerceptionLens ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PerceptionLens {
     pub technical_weight: f32,
     pub mental_weight: f32,
@@ -47,6 +48,7 @@ impl PerceptionLens {
 // ─── CoachProfile ────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CoachProfile {
     pub judging_accuracy: f32,
     pub potential_accuracy: f32,

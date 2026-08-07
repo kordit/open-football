@@ -75,6 +75,7 @@ mod tests {
         ("es", include_bytes!("../../assets/i18n/news/es.json")),
         ("fr", include_bytes!("../../assets/i18n/news/fr.json")),
         ("ja", include_bytes!("../../assets/i18n/news/ja.json")),
+        ("pl", include_bytes!("../../assets/i18n/news/pl.json")),
         ("pt", include_bytes!("../../assets/i18n/news/pt.json")),
         ("ru", include_bytes!("../../assets/i18n/news/ru.json")),
         ("tr", include_bytes!("../../assets/i18n/news/tr.json")),

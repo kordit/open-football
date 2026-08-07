@@ -3,6 +3,7 @@ use crate::league::{League, LeagueResult};
 use crate::{Club, Logging};
 
 #[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct LeagueCollection {
     pub leagues: Vec<League>,
 }

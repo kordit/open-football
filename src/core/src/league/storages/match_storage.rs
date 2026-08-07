@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 pub const DEFAULT_RETENTION_DAYS: i64 = 365 * 3 + 1;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct MatchStorage {
     results: HashMap<String, MatchResult>,
     /// Secondary index: date → match ids recorded that day. Used to drop

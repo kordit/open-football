@@ -32,6 +32,7 @@ use crate::transfers::pipeline::ReportRiskFlag;
 /// Distinct from the candidate-on-shortlist `ShortlistCandidateStatus`
 /// because monitoring tracks scout interest, not pursuit progress.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ScoutMonitoringStatus {
     /// Scout is actively observing — confidence still building.
     Active,
@@ -55,6 +56,7 @@ pub enum ScoutMonitoringStatus {
 
 /// What surfaced this player to the scouting department.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ScoutMonitoringSource {
     /// Player observed in service of an explicit `TransferRequest`.
     TransferRequest,
@@ -89,6 +91,7 @@ pub enum ScoutMonitoringSource {
 /// the shared dossier. A scout leaving the club doesn't erase what
 /// they saw — successor scouts can pick the file back up.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ScoutPlayerMonitoring {
     pub id: u32,
     pub scout_staff_id: u32,
@@ -222,6 +225,7 @@ impl ScoutPlayerMonitoring {
 // ============================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ScoutVoteChoice {
     StrongApprove,
     Approve,
@@ -231,6 +235,7 @@ pub enum ScoutVoteChoice {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum ScoutVoteReason {
     /// Player is ready to slot in immediately.
     ReadyNow,
@@ -257,6 +262,7 @@ pub enum ScoutVoteReason {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ScoutVote {
     pub scout_staff_id: u32,
     pub player_id: u32,
@@ -371,6 +377,7 @@ impl RecruitmentDecisionType {
 // ============================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum RecruitmentDecisionType {
     PromoteToShortlist,
     KeepMonitoring,
@@ -383,6 +390,7 @@ pub enum RecruitmentDecisionType {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Serialize)]
 pub struct RecruitmentDecision {
     pub player_id: u32,
     pub transfer_request_id: Option<u32>,
@@ -402,10 +410,48 @@ pub struct RecruitmentDecision {
     pub budget_fit: f32,
     /// i18n key describing the reason. Resolved by the UI / event log
     /// against the active locale; never a raw display string.
+    /// Persisted as a plain string and re-interned on load (small closed
+    /// key set, so the intern leak is bounded).
+    #[serde(with = "crate::utils::intern::static_str_serde")]
     pub reason_key: &'static str,
 }
 
+/// Hand-written Deserialize: serde derive treats a `&str` field as
+/// implicitly borrowed from the input (forcing `'de: 'static`), which a
+/// save file can never satisfy. Deserialize into an owned mirror and
+/// re-intern the i18n key instead. Field order/names mirror the struct
+/// exactly so the derived Serialize output round-trips.
+impl<'de> serde::Deserialize<'de> for RecruitmentDecision {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(serde::Deserialize)]
+        struct Owned {
+            player_id: u32,
+            transfer_request_id: Option<u32>,
+            decision: RecruitmentDecisionType,
+            consensus_score: f32,
+            chief_scout_support: bool,
+            data_support: bool,
+            board_risk_score: f32,
+            budget_fit: f32,
+            reason_key: String,
+        }
+        let o = Owned::deserialize(d)?;
+        Ok(RecruitmentDecision {
+            player_id: o.player_id,
+            transfer_request_id: o.transfer_request_id,
+            decision: o.decision,
+            consensus_score: o.consensus_score,
+            chief_scout_support: o.chief_scout_support,
+            data_support: o.data_support,
+            board_risk_score: o.board_risk_score,
+            budget_fit: o.budget_fit,
+            reason_key: crate::utils::intern::intern_static(o.reason_key),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct RecruitmentMeeting {
     pub id: u32,
     pub date: NaiveDate,

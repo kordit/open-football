@@ -4,6 +4,7 @@ use crate::club::Player;
 /// "rule disabled / not enforced" — the simulator must opt in by
 /// populating these via the country builder.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CountryRegulations {
     /// Maximum non-domestic players allowed in a squad. `None` means
     /// no limit (typical for top-five European leagues post-Bosman).

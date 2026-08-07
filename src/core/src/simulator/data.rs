@@ -25,7 +25,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct SimulatorData {
     pub continents: Vec<Continent>,
 
@@ -33,6 +33,8 @@ pub struct SimulatorData {
 
     pub transfer_pool: TransferPool<Player>,
 
+    /// Derived lookup indexes — rebuilt after load, never persisted.
+    #[serde(skip)]
     pub indexes: Option<SimulatorDataIndexes>,
 
     /// Set to true whenever a transfer moves a player between clubs. Checked
@@ -70,6 +72,8 @@ pub struct SimulatorData {
     /// Reset (`= None`) at the end of each `simulate_with` tick;
     /// readers fall back to a local rebuild when the cache is `None`
     /// so test paths and one-off callers still work.
+    /// Per-tick scratch — never persisted in a save.
+    #[serde(skip)]
     pub daily_world_player_pool: Option<Vec<PlayerSummary>>,
 
     /// Per-tick scratch cache: snapshot of every globally-pooled free
@@ -79,6 +83,8 @@ pub struct SimulatorData {
     /// player's `free_agent_state` (idempotent on repeat with the same
     /// date) and walks every free agent. Crate-private because the
     /// snapshot type is internal to the country/result module.
+    /// Per-tick scratch — never persisted in a save.
+    #[serde(skip)]
     pub(crate) daily_global_free_agents: Option<Vec<GlobalFreeAgentSummary>>,
 
     /// Monthly free-agent market flow counters (signed from the global
@@ -97,6 +103,7 @@ pub struct SimulatorData {
 /// can tell apart "saved by a pre-contract" from "signed off the open
 /// pool" from "still leaking into long-term free agency".
 #[derive(Debug, Default, Clone, Copy)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FreeAgentFlowCounters {
     /// Signed out of the cross-country global pool (`data.free_agents`).
     pub signed_from_global_pool: u32,

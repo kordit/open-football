@@ -2,6 +2,7 @@ pub mod cpu;
 mod date;
 mod estimation;
 pub mod formatting;
+pub mod intern;
 mod logging;
 pub mod random;
 mod strings;

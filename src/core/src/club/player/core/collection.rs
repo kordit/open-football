@@ -8,6 +8,7 @@ use std::slice::Iter;
 use std::slice::IterMut;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerCollection {
     pub players: Vec<Player>,
 }

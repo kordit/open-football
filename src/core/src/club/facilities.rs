@@ -2,6 +2,7 @@
 /// These affect training quality, youth development, and player generation.
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum FacilityLevel {
     Best,
     Exceptional,
@@ -102,6 +103,7 @@ impl Default for FacilityLevel {
 
 /// Club-level facilities that affect training, youth development, and player generation.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ClubFacilities {
     /// Quality of first-team training facilities
     pub training: FacilityLevel,

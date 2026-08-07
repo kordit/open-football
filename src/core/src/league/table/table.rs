@@ -14,6 +14,7 @@ use std::cmp::Ordering;
 /// may carry the per-pair record on the table itself; for now the
 /// comparator returns `Ordering::Equal` so the chain falls through.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum TieBreakRule {
     Points,
     GoalDifference,
@@ -24,6 +25,7 @@ pub enum TieBreakRule {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TieBreakPolicy {
     pub rules: Vec<TieBreakRule>,
 }
@@ -69,6 +71,7 @@ impl Default for TieBreakPolicy {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct LeagueTable {
     pub rows: Vec<LeagueTableRow>,
     pub tie_break: TieBreakPolicy,
@@ -228,6 +231,7 @@ impl LeagueTable {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct LeagueTableRow {
     pub team_id: u32,
     pub played: u8,

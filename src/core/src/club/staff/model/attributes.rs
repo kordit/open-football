@@ -1,6 +1,7 @@
 use crate::transfers::ScoutingRegion;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffAttributes {
     pub coaching: StaffCoaching,
     pub goalkeeping: StaffGoalkeeperCoaching,
@@ -11,6 +12,7 @@ pub struct StaffAttributes {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffCoaching {
     pub attacking: u8,
     pub defending: u8,
@@ -22,6 +24,7 @@ pub struct StaffCoaching {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffGoalkeeperCoaching {
     pub distribution: u8,
     pub handling: u8,
@@ -29,6 +32,7 @@ pub struct StaffGoalkeeperCoaching {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffMental {
     pub adaptability: u8,
     pub determination: u8,
@@ -38,6 +42,7 @@ pub struct StaffMental {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffKnowledge {
     pub judging_player_ability: u8,
     pub judging_player_potential: u8,
@@ -55,6 +60,7 @@ pub struct StaffKnowledge {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct RegionFamiliarity {
     pub region: ScoutingRegion,
     pub level: u8,
@@ -98,6 +104,7 @@ impl StaffKnowledge {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffDataAnalysis {
     pub judging_player_data: u8,
     pub judging_team_data: u8,
@@ -105,6 +112,7 @@ pub struct StaffDataAnalysis {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct StaffMedical {
     pub physiotherapy: u8,
     pub sports_science: u8,

@@ -24,6 +24,7 @@ use chrono::{Datelike, NaiveDate};
 /// highest-ranked reason so a near-miss isn't overwritten by a
 /// coarse early-gate rejection from another buyer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum FreeAgentBlockReason {
     /// Nationality country could not be resolved — the snapshot
     /// fail-closed fallback (`u16::MAX` reference reputation) blocks
@@ -114,6 +115,7 @@ impl FreeAgentBlockReason {
 /// them since. Populated when the player enters the free-agent pool;
 /// updated by `on_offer_*` while they sit there; cleared on signing.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FreeAgentMarketState {
     pub free_since: NaiveDate,
 
@@ -372,6 +374,7 @@ pub struct FreeAgentStatusExplanation {
 /// the agreement carries no dependency on the country transfer module
 /// that prices and later executes it.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PreContractAgreement {
     pub to_club_id: u32,
     pub to_country_id: u32,

@@ -72,6 +72,7 @@ const INACTIVE_DECAY_PER_STEP: f32 = 0.25;
 /// variant is a small, bounded signal a downstream decision can read by
 /// name. Encoded as a u32 bit-set so the memory record stays compact.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CoachMemoryFlags(u32);
 
 impl CoachMemoryFlags {
@@ -112,6 +113,7 @@ impl CoachMemoryFlags {
 /// long-form baseline, so a player who hasn't played for the coach in
 /// months isn't carrying a stale streak forward forever.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CoachMemory {
     pub player_id: u32,
     pub matches_observed: u16,
@@ -237,6 +239,7 @@ impl Default for CoachMemory {
 /// updated at the league/match dispatch layer where the head coach
 /// for the side is known.
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CoachMemoryStore {
     records: HashMap<u32, CoachMemory>,
 }

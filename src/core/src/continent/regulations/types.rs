@@ -1,6 +1,7 @@
 use crate::continent::{ContinentalRankings, EconomicZone};
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ContinentalRegulations {
     pub ffp_rules: FinancialFairPlayRules,
     pub foreign_player_limits: ForeignPlayerLimits,
@@ -32,6 +33,7 @@ impl ContinentalRegulations {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FinancialFairPlayRules {
     pub max_deficit: f64,
     pub monitoring_period_years: u8,
@@ -58,6 +60,7 @@ impl FinancialFairPlayRules {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ForeignPlayerLimits {
     pub max_non_eu_players: Option<u8>,
     pub homegrown_minimum: u8,
@@ -73,6 +76,7 @@ impl ForeignPlayerLimits {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct YouthRequirements {
     pub minimum_academy_investment: f64,
     pub minimum_youth_squad_size: u8,

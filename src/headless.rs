@@ -35,25 +35,62 @@ fn arg_value(name: &str) -> Option<String> {
         .map(|arg| arg[prefix.len()..].to_string())
 }
 
-/// `simulate [--days=N] [--seed=N]` — generate the world from the
-/// configured database and tick it N simulated days, printing per-day
-/// timings and a summary. `--seed` pins the sim RNG and stamps stable
-/// per-fixture engine seeds.
+/// `simulate [--days=N] [--seed=N] [--save=path] [--load=path]` —
+/// generate the world from the configured database (or load it from a
+/// save file with `--load`, skipping the database entirely) and tick it
+/// N simulated days, printing per-day timings and a summary. `--seed`
+/// pins the sim RNG and stamps stable per-fixture engine seeds.
+/// `--save` writes the world to a save file after the last day.
 pub fn run_simulate() -> i32 {
+    use simulator_core::simulator::persistence;
+
     let days: u32 = arg_value("days").and_then(|v| v.parse().ok()).unwrap_or(60);
     if let Some(seed) = arg_value("seed").and_then(|v| v.parse::<u64>().ok()) {
         simulator_core::utils::random::engine::RandomEngine::set_seed(seed);
         eprintln!("sim seed pinned: {seed}");
     }
 
-    eprintln!("loading world database…");
+    let save_path = arg_value("save").map(std::path::PathBuf::from);
+    let load_path = arg_value("load").map(std::path::PathBuf::from);
+
     let gen_start = Instant::now();
-    let database = DatabaseLoader::load();
-    let mut data: SimulatorData = DatabaseGenerator::generate(&database);
-    eprintln!(
-        "world generated in {:.2} s — simulating {days} days",
-        gen_start.elapsed().as_secs_f64(),
-    );
+    let mut data: SimulatorData = if let Some(load_path) = load_path {
+        eprintln!("loading save {}…", load_path.display());
+        let (header, data) = match persistence::load_world(&load_path) {
+            Ok(loaded) => loaded,
+            Err(e) => {
+                eprintln!("ERROR: {e}");
+                return 1;
+            }
+        };
+        eprintln!(
+            "save \"{name}\" — engine {engine} format v{fmt} seed {seed} \
+             in-game date {date} created {created}",
+            name = header.save_name,
+            engine = header.engine_version,
+            fmt = header.format_version,
+            seed = header
+                .world_seed
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "unseeded".to_string()),
+            date = header.in_game_date.date(),
+            created = header.created_at,
+        );
+        eprintln!(
+            "world loaded in {:.2} s — simulating {days} days",
+            gen_start.elapsed().as_secs_f64(),
+        );
+        data
+    } else {
+        eprintln!("loading world database…");
+        let database = DatabaseLoader::load();
+        let data = DatabaseGenerator::generate(&database);
+        eprintln!(
+            "world generated in {:.2} s — simulating {days} days",
+            gen_start.elapsed().as_secs_f64(),
+        );
+        data
+    };
 
     let start_date = data.date.date();
     let overall = Instant::now();
@@ -94,6 +131,35 @@ pub fn run_simulate() -> i32 {
         end = data.date.date(),
         mean = total_ms / days as f64,
     );
+
+    if let Some(save_path) = save_path {
+        let save_start = Instant::now();
+        let header = simulator_core::simulator::persistence::SaveHeader::for_world(
+            save_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "headless save".to_string()),
+            None,
+            chrono::Utc::now().naive_utc(),
+            &data,
+        );
+        match simulator_core::simulator::persistence::save_world(&save_path, &header, &data) {
+            Ok(()) => {
+                let size = std::fs::metadata(&save_path).map(|m| m.len()).unwrap_or(0);
+                eprintln!(
+                    "world saved to {} ({:.2} MB) in {:.2} s — in-game date {}",
+                    save_path.display(),
+                    size as f64 / (1024.0 * 1024.0),
+                    save_start.elapsed().as_secs_f64(),
+                    data.date.date(),
+                );
+            }
+            Err(e) => {
+                eprintln!("ERROR: {e}");
+                return 1;
+            }
+        }
+    }
 
     0
 }

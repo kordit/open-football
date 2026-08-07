@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventType {
     // Manager interactions
     ManagerPraise,

@@ -22,6 +22,7 @@ pub const COPA_LIBERTADORES_SLUG: &str = "copa-libertadores";
 // day off the UEFA midweek dates so the two continents don't collide.
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CopaLibertadores {
     pub participating_clubs: Vec<u32>,
     pub current_stage: CompetitionStage,

@@ -5,6 +5,7 @@ use std::ops::Range;
 /// intake and backfill paths read it to keep the resident squad in
 /// range.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct AcademySettings {
     pub players_count_range: Range<u8>,
 }

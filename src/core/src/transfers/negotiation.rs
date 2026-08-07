@@ -6,6 +6,7 @@ use chrono::Duration;
 use chrono::NaiveDate;
 
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum NegotiationPhase {
     /// Selling club decides whether to engage (1-3 days)
     InitialApproach { started: NaiveDate },
@@ -20,6 +21,7 @@ pub enum NegotiationPhase {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum NegotiationRejectionReason {
     SellerRefusedToNegotiate,
     AskingPriceTooHigh,
@@ -37,6 +39,7 @@ pub enum NegotiationRejectionReason {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub enum NegotiationStatus {
     Pending,
     Accepted,
@@ -46,6 +49,7 @@ pub enum NegotiationStatus {
 }
 
 #[derive(Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct TransferNegotiation {
     pub id: u32,
     pub player_id: u32,

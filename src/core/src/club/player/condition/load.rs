@@ -69,6 +69,7 @@ pub const WORKLOAD_SPIKE_RATIO: f32 = 1.4;
 pub const RECOVERY_DEBT_HEAVY: f32 = 350.0;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerLoad {
     /// Recency-weighted competitive minutes over the trailing ~7 days.
     pub minutes_last_7: f32,

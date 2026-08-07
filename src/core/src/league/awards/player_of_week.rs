@@ -33,6 +33,7 @@ use std::cmp::Ordering;
 /// UI render past awards without re-resolving entities that may have moved
 /// or retired since the week the award was given.
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerOfTheWeekAward {
     pub week_end_date: NaiveDate,
     pub player_id: u32,
@@ -51,6 +52,7 @@ pub struct PlayerOfTheWeekAward {
 /// Per-league award archive. Bounded — we cap at three full seasons so the
 /// in-memory cost stays predictable even on long saves.
 #[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PlayerOfTheWeekHistory {
     items: Vec<PlayerOfTheWeekAward>,
     last_award_week: Option<NaiveDate>,

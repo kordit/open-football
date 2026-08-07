@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CountryEconomicFactors {
     pub gdp_growth: f32,
     pub inflation_rate: f32,
