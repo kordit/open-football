@@ -313,6 +313,62 @@
         });
     }
     </script>
+    <!-- Added in this fork: saved games list (save slots) -->
+    <section class="fm-panel" id="fm-saves-panel" style="display:none; margin-bottom: 1rem;">
+        <div class="fm-panel-head">
+            <h3><i class="fa fa-floppy-disk"></i> {{ i18n.t("saves") }}</h3>
+            <span class="fm-panel-count" id="fm-saves-count"></span>
+        </div>
+        <div id="fm-saves-list" style="padding: 8px 12px;"></div>
+    </section>
+    <script>
+    /* Added in this fork: render GET /api/saves with load buttons. */
+    (function () {
+        function esc(s) {
+            var d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
+        }
+        fetch('/api/saves')
+            .then(function (r) { return r.json(); })
+            .then(function (saves) {
+                if (!Array.isArray(saves) || saves.length === 0) return;
+                var panel = document.getElementById('fm-saves-panel');
+                var list = document.getElementById('fm-saves-list');
+                var count = document.getElementById('fm-saves-count');
+                if (!panel || !list) return;
+                count.textContent = saves.length;
+                list.innerHTML = saves.map(function (s) {
+                    var club = s.managed_team_name ? ' — ' + esc(s.managed_team_name) : '';
+                    return '<div style="display:flex; align-items:center; gap:12px; padding:6px 0; border-bottom:1px solid rgba(128,128,128,0.2);">' +
+                        '<div style="flex:1; min-width:0;">' +
+                        '<div style="font-weight:600;">' + esc(s.save_name) + club + '</div>' +
+                        '<div style="opacity:0.7; font-size:0.85em;">' + esc(s.in_game_date) + ' · v' + esc(s.engine_version) + ' · ' + esc(s.slug) + '</div>' +
+                        '</div>' +
+                        '<button type="button" data-slug="' + esc(s.slug) + '" class="fm-load-save-btn" ' +
+                        'style="padding:4px 12px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer;">' +
+                        '{{ i18n.t("load_game") }}</button>' +
+                        '</div>';
+                }).join('');
+                panel.style.display = '';
+                list.addEventListener('click', async function (e) {
+                    var btn = e.target.closest('.fm-load-save-btn');
+                    if (!btn) return;
+                    btn.disabled = true;
+                    try {
+                        var res = await fetch('/api/saves/' + encodeURIComponent(btn.dataset.slug) + '/load', {method: 'POST'});
+                        if (res.ok) {
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                    }
+                    btn.disabled = false;
+                });
+            })
+            .catch(function () {});
+    })();
+    </script>
     {% for continent in continents %}
     <section class="fm-panel {% if !loop.first %}mt-3{% endif %}">
         <div class="fm-panel-head">

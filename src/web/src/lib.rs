@@ -31,6 +31,8 @@ pub use settings::{RunMode, Settings};
 
 pub use ai::{AiConfig, AiJobs, LlmSettings};
 pub use error::{ApiError, ApiResult};
+// Added in this fork: save-slot session bookkeeping.
+pub use game::saves::SaveMeta;
 pub use i18n::events::{EventI18n, EventI18nManager};
 pub use i18n::news::{NewsI18n, NewsI18nManager};
 pub use i18n::{I18n, I18nManager};
@@ -113,6 +115,9 @@ pub struct GameAppData {
     /// In-flight AI agent runs, polled by the per-page report dialogs so
     /// tool calls stream in live.
     pub ai_jobs: AiJobs,
+    /// Added in this fork: save-slot session state — active slot slug,
+    /// saves directory, last autosave date.
+    pub saves: Arc<RwLock<SaveMeta>>,
 }
 
 impl Clone for GameAppData {
@@ -128,6 +133,7 @@ impl Clone for GameAppData {
             workers: self.workers.clone(),
             ai: self.ai.clone(),
             ai_jobs: self.ai_jobs.clone(),
+            saves: Arc::clone(&self.saves),
         }
     }
 }

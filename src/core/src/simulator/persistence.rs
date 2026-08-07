@@ -25,7 +25,9 @@ use std::path::Path;
 /// File magic — "Open Football SaVe".
 pub const SAVE_MAGIC: [u8; 4] = *b"OFSV";
 /// Bump on any incompatible change to the header or body encoding.
-pub const SAVE_FORMAT_VERSION: u32 = 1;
+/// v2: `SimulatorData.player_manager` added to the body (career layer,
+/// added in this fork).
+pub const SAVE_FORMAT_VERSION: u32 = 2;
 /// zstd compression level for the world body. Level 3 is the codec's
 /// balanced default: near-max ratio on this kind of struct soup at a
 /// fraction of the CPU of the higher levels.

@@ -2,6 +2,35 @@
 
 {% block content %}
 <div class="fm-page">
+    <!-- Added in this fork: start a career at this club -->
+    {% if show_manage_button || is_managed %}
+    <section class="fm-panel" style="margin-bottom: 12px; padding: 12px;">
+        {% if is_managed %}
+        <span style="font-weight: 600;"><i class="fa fa-user-tie"></i> {{ i18n.t("your_club") }}</span>
+        {% else %}
+        <button type="button" id="fm-manage-btn"
+                style="padding: 6px 14px; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; font-weight: 600;"
+                onclick="document.getElementById('fm-manage-form').style.display='block'; this.style.display='none';">
+            <i class="fa fa-user-tie"></i> {{ i18n.t("manage_this_club") }}
+        </button>
+        <div id="fm-manage-form" style="display:none;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <input type="text" id="fm-manager-name" maxlength="60"
+                       placeholder="{{ i18n.t("manager_name") }}"
+                       style="padding:6px 10px; border:1px solid #999; border-radius:4px; min-width:220px;">
+                <input type="text" id="fm-save-name" maxlength="60"
+                       placeholder="{{ i18n.t("save_name") }}"
+                       style="padding:6px 10px; border:1px solid #999; border-radius:4px; min-width:180px;">
+                <button type="button" id="fm-start-career-btn" onclick="fmStartCareer()"
+                        style="padding:6px 14px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer; font-weight:600;">
+                    {{ i18n.t("new_career") }}
+                </button>
+            </div>
+            <div id="fm-manage-error" style="display:none; color:#c0392b; margin-top:6px;"></div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
     <section class="fm-panel">
         <div class="fm-panel-head">
             <h3>{{ i18n.t("squad") }}</h3>
@@ -116,6 +145,46 @@
 {% endblock %}
 
 {% block scripts %}
+{% if show_manage_button %}
+<script>
+/* Added in this fork: "manage this club" → POST /api/game/create, then
+   reload so the page renders with the new career active. */
+async function fmStartCareer() {
+    var nameInput = document.getElementById('fm-manager-name');
+    var errorBox = document.getElementById('fm-manage-error');
+    var startBtn = document.getElementById('fm-start-career-btn');
+    var managerName = (nameInput.value || '').trim();
+    errorBox.style.display = 'none';
+    if (!managerName) {
+        nameInput.focus();
+        return;
+    }
+    var body = { team_id: {{ team_id }}, manager_name: managerName };
+    var saveName = (document.getElementById('fm-save-name').value || '').trim();
+    if (saveName) body.save_name = saveName;
+    startBtn.disabled = true;
+    try {
+        var res = await fetch('/api/game/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            window.location.href = '/{{ lang }}/teams/{{ team_slug }}';
+            return;
+        }
+        var payload = await res.json().catch(function () { return {}; });
+        errorBox.textContent = payload.error || ('HTTP ' + res.status);
+        errorBox.style.display = 'block';
+    } catch (e) {
+        errorBox.textContent = String(e);
+        errorBox.style.display = 'block';
+    } finally {
+        startBtn.disabled = false;
+    }
+}
+</script>
+{% endif %}
 {% if ai_enabled %}
 <script>
 /* Squad-page "AI" button → start a server-side agent run, then long-poll its

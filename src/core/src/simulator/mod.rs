@@ -10,7 +10,8 @@ mod result;
 mod seeding;
 
 pub use country_info::CountryInfo;
-pub use data::{FreeAgentFlowCounters, SimulatorData};
+// `PlayerManager` added in this fork (career layer).
+pub use data::{FreeAgentFlowCounters, PlayerManager, SimulatorData};
 pub use matchday::WorldMatchdayResult;
 pub use result::SimulationResult;
 

@@ -1812,5 +1812,16 @@
   "about_me_location": "Moscow, Russia",
   "about_me_text": "I build Open Football on my own, in evenings and at weekends. Found a bug, want a league added, or want to argue about the match engine? Write to me, I read everything.",
   "about_link_email": "Email",
-  "about_link_database": "Database"
+  "about_link_database": "Database",
+  "manage_this_club": "Manage this club",
+  "save_game": "Save game",
+  "load_game": "Load",
+  "continue_days": "Continue 7 days",
+  "new_career": "New career",
+  "manager_name": "Manager name",
+  "save_name": "Save name",
+  "saves": "Saved games",
+  "no_saves": "No saved games yet",
+  "your_club": "Your club",
+  "saved_ok": "Saved"
 }

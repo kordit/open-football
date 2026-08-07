@@ -105,6 +105,8 @@ async fn main() {
         workers,
         ai: AiConfig::new(),
         ai_jobs: AiJobs::new(),
+        // Added in this fork: no active save slot at startup.
+        saves: Arc::new(RwLock::new(web::SaveMeta::new())),
     };
 
     // Open browser

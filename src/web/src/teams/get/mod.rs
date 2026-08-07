@@ -45,6 +45,14 @@ pub struct TeamGetTemplate {
     pub team_slug: String,
     /// Numeric club id — the AI team-report button posts this to the agent.
     pub club_id: u32,
+    /// Added in this fork: numeric team id — the "manage this club" form
+    /// posts it to `/api/game/create`.
+    pub team_id: u32,
+    /// Added in this fork: true when this Main squad is not the currently
+    /// managed club (or no career is active) — shows the manage button.
+    pub show_manage_button: bool,
+    /// Added in this fork: true when this team is the managed club.
+    pub is_managed: bool,
     /// Gates the AI report button: true only on the Main team page when an
     /// LLM contract is configured (hidden on B / reserve / youth squads).
     pub ai_enabled: bool,
@@ -318,6 +326,12 @@ pub async fn team_get_action(
     // team page only — not on B / reserve / youth (U18…) squads.
     let ai_enabled = team.team_type == TeamType::Main && state.ai.is_configured().await;
 
+    // Added in this fork: managed-club session state. The manage button
+    // shows on Main squads that are not the currently managed club.
+    let managed_team_id = simulator_data.player_manager.as_ref().map(|m| m.team_id);
+    let is_managed = managed_team_id == Some(team.id);
+    let show_manage_button = team.team_type == TeamType::Main && !is_managed;
+
     Ok(TeamGetTemplate {
         css_version: CSS_VERSION,
         computer_name: &COMPUTER_NAME,
@@ -344,6 +358,9 @@ pub async fn team_get_action(
         menu_sections,
         team_slug: team.slug.clone(),
         club_id,
+        team_id: team.id,
+        show_manage_button,
+        is_managed,
         ai_enabled,
         active_tab: "squad",
         show_finances_tab: team.team_type.is_own_team(),

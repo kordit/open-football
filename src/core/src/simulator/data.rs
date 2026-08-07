@@ -25,6 +25,17 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+// Added in this fork: identity of the human-controlled manager. Lives
+// inside the world (and therefore inside every save file) so a career
+// travels with its world snapshot.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PlayerManager {
+    /// The managed team's id (`Team::id` of a Main squad).
+    pub team_id: u32,
+    /// Display name the player entered when starting the career.
+    pub name: String,
+}
+
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct SimulatorData {
     pub continents: Vec<Continent>,
@@ -96,6 +107,11 @@ pub struct SimulatorData {
     /// `FreeAgentMarketAuditor::log_pool_stats` reads them on the first of
     /// each month before the caller `reset`s them.
     pub free_agent_flow: FreeAgentFlowCounters,
+
+    /// Added in this fork: the human-managed club, when a career is
+    /// active. Serialized into saves (NOT skipped); `None` for headless
+    /// runs and freshly generated worlds.
+    pub player_manager: Option<PlayerManager>,
 }
 
 /// Monthly free-agent market flow counters. Distinguishes the routes a
@@ -199,6 +215,8 @@ impl SimulatorData {
             daily_world_player_pool: None,
             daily_global_free_agents: None,
             free_agent_flow: FreeAgentFlowCounters::default(),
+            // Added in this fork: no career until the session layer sets one.
+            player_manager: None,
         };
 
         let mut indexes = SimulatorDataIndexes::new();

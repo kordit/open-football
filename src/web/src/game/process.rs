@@ -68,6 +68,11 @@ pub async fn game_process_action(
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
 
+    // Added in this fork: rotating autosave of the just-published world
+    // into `{slug}.auto.ofs`. Fire-and-forget on the blocking pool so
+    // the HTTP response is not delayed by serialization.
+    crate::game::saves::spawn_autosave(&state);
+
     StatusCode::OK
 }
 

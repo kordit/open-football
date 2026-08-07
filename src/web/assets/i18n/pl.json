@@ -1812,5 +1812,16 @@
   "about_me_location": "Moskwa, Rosja",
   "about_me_text": "Buduję Open Football samodzielnie, wieczorami i w weekendy. Znalazłeś błąd, chcesz dodania ligi albo masz ochotę pospierać się o silnik meczowy? Napisz do mnie, czytam wszystko.",
   "about_link_email": "E-mail",
-  "about_link_database": "Baza danych"
+  "about_link_database": "Baza danych",
+  "manage_this_club": "Prowadź ten klub",
+  "save_game": "Zapisz grę",
+  "load_game": "Wczytaj",
+  "continue_days": "Kontynuuj 7 dni",
+  "new_career": "Nowa kariera",
+  "manager_name": "Imię i nazwisko trenera",
+  "save_name": "Nazwa zapisu",
+  "saves": "Zapisy",
+  "no_saves": "Brak zapisów",
+  "your_club": "Twój klub",
+  "saved_ok": "Zapisano"
 }

@@ -111,6 +111,17 @@
                                     <a class="fm-ai-icon fm-ai-icon-about" href="/{{ lang }}/about" title="{{ i18n.t("about") }}">
                                         <i class="fa fa-circle-question"></i>
                                     </a>
+                                    <!-- Added in this fork: active-career chrome (club link + save + continue). Filled by fmApplySession(). -->
+                                    <div class="fm-session" id="fm-session" style="display:none; align-items:center; gap:8px; margin-right:8px;">
+                                        <a class="fm-session-club" id="fm-session-club" href="#"
+                                           style="font-weight:600; color:inherit; text-decoration:none; white-space:nowrap;"></a>
+                                        <button type="button" id="fm-session-save-btn"
+                                                onclick="fmSaveGame(this)"
+                                                style="padding:4px 10px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer; white-space:nowrap;">{{ i18n.t("save_game") }}</button>
+                                        <button type="button" id="fm-session-continue-btn"
+                                                onclick="runProcess(7)"
+                                                style="padding:4px 10px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer; white-space:nowrap;">{{ i18n.t("continue_days") }}</button>
+                                    </div>
                                     <div class="fm-date">
                                         <div class="fm-date-main">{{ i18n.date_main }}</div>
                                         <div class="fm-date-sub">{{ i18n.date_sub }}</div>
@@ -262,6 +273,42 @@
         })
         .catch(function () {
         });
+
+    // Added in this fork: session chrome — show the managed club + save /
+    // continue buttons in the header while a career is active.
+    async function fmApplySession() {
+        try {
+            const res = await fetch('/api/game/session');
+            const s = await res.json();
+            if (!s.active) return;
+            const bar = document.getElementById('fm-session');
+            if (!bar) return;
+            const club = document.getElementById('fm-session-club');
+            if (club) {
+                club.textContent = s.team_name || '';
+                if (s.team_slug) club.href = '/{{ lang }}/teams/' + s.team_slug;
+            }
+            bar.style.display = 'flex';
+        } catch (e) {
+        }
+    }
+
+    async function fmSaveGame(btn) {
+        try {
+            const res = await fetch('/api/game/save', {method: 'POST'});
+            if (res.ok && btn) {
+                const original = btn.textContent;
+                btn.textContent = '{{ i18n.t("saved_ok") }}';
+                setTimeout(function () { btn.textContent = original; }, 1500);
+            }
+        } catch (e) {
+        }
+    }
+
+    fmApplySession();
+    // The header lives inside #page-content, so re-apply after every
+    // soft refresh (process runs, etc.).
+    document.addEventListener('content-refreshed', fmApplySession);
 </script>
 <script src="/static/js/fm-dialog.js?v=2"></script>
 <script src="/static/js/badge-deck.js?v=2"></script>
