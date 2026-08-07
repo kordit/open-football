@@ -471,6 +471,89 @@ pub fn spawn_autosave(state: &GameAppData) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/game/takeover — switch the managed club within the same save
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct TakeoverRequest {
+    pub team_id: u32,
+}
+
+/// Mid-career club switch: the manager resigns and takes charge of
+/// another club inside the same save. No new career, no questions —
+/// the manager name carries over, `player_manager.team_id` moves to
+/// the new club's main team, the current slot is re-saved and the new
+/// world is published. The old club simply returns to AI control.
+pub async fn game_takeover_action(
+    State(state): State<GameAppData>,
+    Json(request): Json<TakeoverRequest>,
+) -> ApiResult<Json<SaveListEntry>> {
+    let _guard = Arc::clone(&state.process_lock)
+        .try_lock_owned()
+        .map_err(|_| ApiError::BadRequest("game is busy (processing in progress)".to_string()))?;
+
+    let (slug, saves_dir) = {
+        let meta = state.saves.read().await;
+        let slug = meta
+            .current_slug
+            .clone()
+            .ok_or_else(|| ApiError::BadRequest("no active career".to_string()))?;
+        (slug, meta.saves_dir.clone())
+    };
+
+    let world_arc = {
+        let guard = state.data.read().await;
+        guard
+            .as_ref()
+            .map(Arc::clone)
+            .ok_or_else(|| ApiError::InternalError("simulator data not loaded".to_string()))?
+    };
+
+    // Validate on the shared snapshot before paying for the deep clone.
+    {
+        let manager = world_arc
+            .player_manager
+            .as_ref()
+            .ok_or_else(|| ApiError::BadRequest("no active career".to_string()))?;
+        if manager.team_id == request.team_id {
+            return Err(ApiError::BadRequest(
+                "already managing this club".to_string(),
+            ));
+        }
+        let team = world_arc.team(request.team_id).ok_or_else(|| {
+            ApiError::NotFound(format!("team with id {} not found", request.team_id))
+        })?;
+        if team.team_type != core::TeamType::Main {
+            return Err(ApiError::BadRequest(
+                "only a club's main team can be managed".to_string(),
+            ));
+        }
+    }
+
+    let team_id = request.team_id;
+    let (entry, world) = spawn_blocking(move || -> Result<_, ApiError> {
+        // Deep clone outside any lock (the shared slot still holds a
+        // reference), mutate, then persist into the current slot.
+        let mut world = Arc::unwrap_or_clone(world_arc);
+        if let Some(manager) = world.player_manager.as_mut() {
+            manager.team_id = team_id;
+        }
+        let entry = write_slot(&saves_dir, &slug, &world)?;
+        Ok((entry, world))
+    })
+    .await
+    .map_err(|e| ApiError::InternalError(format!("takeover task failed: {e}")))??;
+
+    publish_world(&state, world).await;
+
+    info!(
+        "takeover: now managing team {} in slot '{}'",
+        team_id, entry.slug
+    );
+    Ok(Json(entry))
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/game/session — powers the layout session chrome
 // ---------------------------------------------------------------------------
 
@@ -487,6 +570,12 @@ pub struct SessionInfo {
     pub team_slug: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manager_name: Option<String>,
+    /// Added for the club-first sidebar: the managed team's league, so
+    /// the layout can link straight to the league table.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub league_slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub league_name: Option<String>,
 }
 
 pub async fn game_session_action(State(state): State<GameAppData>) -> Json<SessionInfo> {
@@ -497,25 +586,34 @@ pub async fn game_session_action(State(state): State<GameAppData>) -> Json<Sessi
         guard.as_ref().and_then(|world| {
             world.player_manager.as_ref().map(|m| {
                 let team = world.team(m.team_id);
+                let league = team
+                    .and_then(|t| t.league_id)
+                    .and_then(|id| world.league(id));
                 (
                     m.team_id,
                     m.name.clone(),
                     team.map(|t| t.name.clone()),
                     team.map(|t| t.slug.clone()),
+                    league.map(|l| l.slug.clone()),
+                    league.map(|l| l.name.clone()),
                 )
             })
         })
     };
 
     match manager {
-        Some((team_id, manager_name, team_name, team_slug)) => Json(SessionInfo {
-            active: true,
-            slug,
-            team_id: Some(team_id),
-            team_name,
-            team_slug,
-            manager_name: Some(manager_name),
-        }),
+        Some((team_id, manager_name, team_name, team_slug, league_slug, league_name)) => {
+            Json(SessionInfo {
+                active: true,
+                slug,
+                team_id: Some(team_id),
+                team_name,
+                team_slug,
+                manager_name: Some(manager_name),
+                league_slug,
+                league_name,
+            })
+        }
         None => Json(SessionInfo {
             active: false,
             slug: None,
@@ -523,6 +621,8 @@ pub async fn game_session_action(State(state): State<GameAppData>) -> Json<Sessi
             team_name: None,
             team_slug: None,
             manager_name: None,
+            league_slug: None,
+            league_name: None,
         }),
     }
 }

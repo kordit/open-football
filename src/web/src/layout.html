@@ -20,6 +20,20 @@
         <div class="row">
             {% if !menu_sections.is_empty() %}
             <div class="fm-sidebar">
+                <!-- Changed in this fork: the top bar is gone; the active-career
+                     chrome lives here as the sidebar's top card. Filled and
+                     unhidden by fmApplySession(). -->
+                <div class="fm-session-card" id="fm-session" hidden>
+                    <a class="fm-session-club" id="fm-session-club" href="#">
+                        <span class="fm-session-crest"><i class="fa fa-shield-halved"></i></span>
+                        <span class="fm-session-club-text">
+                            <span class="fm-session-club-name" id="fm-session-club-name"></span>
+                            <span class="fm-session-date">{{ i18n.date_main }} · {{ i18n.date_sub }}</span>
+                        </span>
+                    </a>
+                    <button type="button" class="fm-btn fm-btn-primary fm-session-continue" id="fm-session-continue-btn"
+                            onclick="runProcess(7)"><i class="fa fa-play"></i> {{ i18n.t("continue_days") }}</button>
+                </div>
                 <nav class="fm-sidebar-scroll">
                     {% for section in menu_sections %}
                     {% let is_collapsible = section.collapsible && section.items.len() > 2 %}
@@ -65,6 +79,15 @@
                         </div>
                     </li>
                     <li class="fm-nav-divider"></li>
+                    <!-- Added in this fork: back to the entry screen (new
+                         career + saves). Navigation only — the active
+                         session keeps running. -->
+                    <li>
+                        <a href="/{{ lang }}/saves">
+                            <i class="fa fa-house"></i>
+                            <span>{{ i18n.t("main_menu") }}</span>
+                        </a>
+                    </li>
                     <li class="fm-nav-shared-only">
                         <a class="fm-nav-download" href="https://github.com/ZOXEXIVO/open-football/releases"
                            target="_blank" rel="noopener" onclick="gtag('event', 'download')">
@@ -83,56 +106,22 @@
                         <div class="col m-0 p-0" {% if !header_color.is_empty() %}
                              style="--header-bg: {{ header_color }};{% if !foreground_color.is_empty() %} --header-border: {{ foreground_color }}33; --tab-fg: {{ foreground_color }}99; --tab-fg-active: {{ foreground_color }}; --tab-active-border: {{ foreground_color }};{% endif %} --tab-hover-bg: rgba(0,0,0,0.1);"
                              {% endif %}>
-                            <div class="fm-header{% if !header_color.is_empty() %} fm-header-colored{% endif %}" {% if
-                                 !header_color.is_empty() %}style="background: {{ header_color }};" {% endif %}>
-                                {% if !menu_sections.is_empty() %}
-                                <button class="fm-menu-toggle d-xl-none"
-                                        onclick="document.body.classList.toggle('fm-sidebar-open')"
-                                        aria-label="{{ i18n.t("toggle_menu") }}">
-                                    <span></span>
-                                </button>
-                                {% endif %}
-                                <div class="fm-header-title">
-                                    <h1>{{ title }}</h1>
-                                    <span class="fm-header-sub">{% if !sub_title_prefix.is_empty() %}<span>{{ sub_title_prefix }}</span>  -  {% endif %}{% if !sub_title_country_code.is_empty() %}<a
-                                            href="/{{ lang }}/countries/{{ sub_title_country_code }}/leagues"><span
-                                            class="flag flag-{{ sub_title_country_code }}"
-                                            style="vertical-align: middle; margin-right: 6px;"></span></a>{% endif %}<a
-                                            href="{{ sub_title_link }}">{{ sub_title }}{% if !sub_title_suffix.is_empty() %} {{ sub_title_suffix }}{% endif %}</a></span>
-                                </div>
-                                {% block header_center %}{% endblock %}
-                                <div class="fm-header-actions">
-                                    <a class="fm-ai-icon fm-header-search" href="/{{ lang }}/search" title="{{ i18n.t("search") }}">
-                                        <i class="fa fa-search"></i>
-                                    </a>
-                                    <a class="fm-ai-icon fm-ai-icon-robot" href="https://github.com/ZOXEXIVO/open-football" title="GitHub" target="_blank" rel="noopener">
-                                        <i class="fa-brands fa-github"></i>
-                                    </a>
-                                    <a class="fm-ai-icon fm-ai-icon-about" href="/{{ lang }}/about" title="{{ i18n.t("about") }}">
-                                        <i class="fa fa-circle-question"></i>
-                                    </a>
-                                    <!-- Added in this fork: active-career chrome (club link + save + continue). Filled by fmApplySession(). -->
-                                    <div class="fm-session" id="fm-session" style="display:none; align-items:center; gap:8px; margin-right:8px;">
-                                        <a class="fm-session-club" id="fm-session-club" href="#"
-                                           style="font-weight:600; color:inherit; text-decoration:none; white-space:nowrap;"></a>
-                                        <button type="button" id="fm-session-save-btn"
-                                                onclick="fmSaveGame(this)"
-                                                style="padding:4px 10px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer; white-space:nowrap;">{{ i18n.t("save_game") }}</button>
-                                        <button type="button" id="fm-session-continue-btn"
-                                                onclick="runProcess(7)"
-                                                style="padding:4px 10px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; cursor:pointer; white-space:nowrap;">{{ i18n.t("continue_days") }}</button>
-                                    </div>
-                                    <div class="fm-date">
-                                        <div class="fm-date-main">{{ i18n.date_main }}</div>
-                                        <div class="fm-date-sub">{{ i18n.date_sub }}</div>
-                                    </div>
-                                    <div class="fm-process-btn" id="process-btn"
-                                         onclick="startProcess(event)">
-                                        <span class="fm-process-label">{{ i18n.t("process") }}</span>
-                                        <div class="spinner-wrapper" id="process-spinner">
-                                            <div class="spinner"></div>
-                                        </div>
-                                    </div>
+                            <!-- Changed in this fork: no top bar. Only the mobile
+                                 sidebar toggle and a hidden process element (the
+                                 processing poller and page scripts key off its
+                                 classes) remain. -->
+                            {% if !menu_sections.is_empty() %}
+                            <button class="fm-menu-toggle fm-menu-toggle-floating d-xl-none"
+                                    onclick="document.body.classList.toggle('fm-sidebar-open')"
+                                    aria-label="{{ i18n.t("toggle_menu") }}">
+                                <span></span>
+                            </button>
+                            {% endif %}
+                            <div class="fm-process-btn" id="process-btn"
+                                 onclick="startProcess(event)">
+                                <span class="fm-process-label">{{ i18n.t("process") }}</span>
+                                <div class="spinner-wrapper" id="process-spinner">
+                                    <div class="spinner"></div>
                                 </div>
                             </div>
                             {% block submenu %}{% endblock %}
@@ -275,32 +264,73 @@
         });
 
     // Added in this fork: session chrome — show the managed club + save /
-    // continue buttons in the header while a career is active.
+    // continue buttons in the header while a career is active, and inject
+    // the "My club" section on top of the sidebar so the managed club is
+    // always one click away while the rest of the world stays browsable.
+    function fmInjectClubNav(s) {
+        const nav = document.querySelector('.fm-sidebar-scroll');
+        if (!nav || !s.team_slug) return;
+        if (nav.querySelector('.fm-club-section')) return;
+        const lang = '{{ lang }}';
+        const base = '/' + lang + '/teams/' + s.team_slug;
+        const here = window.location.pathname;
+        // With a session active the "Home" entry duplicates the club
+        // dashboard — drop it (the session card is the go-to-club link;
+        // the entry screen is reachable via "Main menu" at the bottom).
+        nav.querySelectorAll('.fm-nav-section li a').forEach(function (a) {
+            if (a.getAttribute('href') === '/' + lang) {
+                const li = a.closest('li');
+                const ul = li.parentElement;
+                li.remove();
+                if (!ul.querySelector('li a')) ul.remove();
+            }
+        });
+        const items = [
+            [base, 'fa-users', '{{ i18n.t("squad") }}'],
+            [base + '/tactics', 'fa-chess-board', '{{ i18n.t("tactics") }}'],
+            [base + '/schedule', 'fa-calendar-days', '{{ i18n.t("schedule") }}'],
+        ];
+        if (s.league_slug) {
+            items.push(['/' + lang + '/leagues/' + s.league_slug, 'fa-table-list', '{{ i18n.t("league_table") }}']);
+        }
+        items.push(
+            [base + '/transfers', 'fa-right-left', '{{ i18n.t("transfers") }}'],
+            [base + '/scouting', 'fa-binoculars', '{{ i18n.t("scouting") }}'],
+            [base + '/staff', 'fa-user-tie', '{{ i18n.t("staff") }}'],
+            [base + '/newspaper', 'fa-newspaper', '{{ i18n.t("news") }}']
+        );
+        const ul = document.createElement('ul');
+        ul.className = 'fm-nav-section fm-club-section';
+        ul.innerHTML = '<li class="fm-nav-label">{{ i18n.t("my_club") }}</li>' +
+            items.map(function (it) {
+                const active = here === it[0] ? ' class="active"' : '';
+                return '<li' + active + '><a href="' + it[0] + '"><i class="fa ' + it[1] + '"></i><span>' + it[2] + '</span></a></li>';
+            }).join('');
+        const first = nav.querySelector('.fm-nav-section');
+        nav.insertBefore(ul, first);
+        // Label the remaining sections as the world-browsing area.
+        if (first) {
+            const label = document.createElement('li');
+            label.className = 'fm-nav-label';
+            label.textContent = '{{ i18n.t("world_section") }}';
+            first.insertBefore(label, first.firstChild);
+        }
+    }
+
     async function fmApplySession() {
         try {
             const res = await fetch('/api/game/session');
             const s = await res.json();
             if (!s.active) return;
             const bar = document.getElementById('fm-session');
-            if (!bar) return;
-            const club = document.getElementById('fm-session-club');
-            if (club) {
-                club.textContent = s.team_name || '';
-                if (s.team_slug) club.href = '/{{ lang }}/teams/' + s.team_slug;
+            if (bar) {
+                const clubName = document.getElementById('fm-session-club-name');
+                if (clubName) clubName.textContent = s.team_name || '';
+                const club = document.getElementById('fm-session-club');
+                if (club && s.team_slug) club.href = '/{{ lang }}/teams/' + s.team_slug;
+                bar.hidden = false;
             }
-            bar.style.display = 'flex';
-        } catch (e) {
-        }
-    }
-
-    async function fmSaveGame(btn) {
-        try {
-            const res = await fetch('/api/game/save', {method: 'POST'});
-            if (res.ok && btn) {
-                const original = btn.textContent;
-                btn.textContent = '{{ i18n.t("saved_ok") }}';
-                setTimeout(function () { btn.textContent = original; }, 1500);
-            }
+            fmInjectClubNav(s);
         } catch (e) {
         }
     }
@@ -314,27 +344,10 @@
 <script src="/static/js/badge-deck.js?v=2"></script>
 <div id="page-scripts">{% block scripts_layout %}{% endblock %}{% block scripts %}{% endblock %}</div>
 
-<!-- Google tag (gtag.js) -->
+<!-- Changed in this fork: analytics removed — no external scripts, no gtag. -->
 <script>
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-2WTTN499YZ';
-    document.head.appendChild(s);
-    window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-        dataLayer.push(arguments);
-    }
-
-    gtag('js', new Date());
-    const isLocal = window.location.hostname !== 'open-football.org';
-    let config = { env: isLocal ? 'local' : 'online' };
-    if (isLocal) {
-        config.computer_name = '{{ computer_name }}';
-        config.cpu = '{{ cpu_brand }}';
-        config.cpu_cores = '{{ cores_count }}';
-    }
-    gtag('config', 'G-2WTTN499YZ', config);
+    /* Some upstream templates call gtag() on click handlers; keep a no-op. */
+    function gtag() {}
 </script>
 </body>
 </html>

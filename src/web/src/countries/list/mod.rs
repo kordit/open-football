@@ -6,9 +6,7 @@ use crate::worker::WorkerStatus;
 use crate::{ApiError, ApiResult, GameAppData, I18n, LlmSettings};
 use askama::Template;
 use axum::extract::{Path, State};
-use axum::http::HeaderMap;
-use axum::http::header::HOST;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -16,9 +14,52 @@ pub struct CountryListRequest {
     lang: String,
 }
 
+/// Player-facing landing page — added in this fork. With no active
+/// career it shows only the "new career" hero and the saves list; with
+/// an active career the home route redirects to the managed club.
+#[derive(Template, askama_web::WebTemplate)]
+#[template(path = "countries/list/home.html")]
+pub struct HomeTemplate {
+    pub css_version: &'static str,
+    pub title: String,
+    pub sub_title_prefix: String,
+    pub sub_title_suffix: String,
+    pub sub_title: String,
+    pub sub_title_link: String,
+    pub sub_title_country_code: String,
+    pub header_color: String,
+    pub foreground_color: String,
+    pub menu_sections: Vec<MenuSection>,
+    pub i18n: I18n,
+    pub lang: String,
+}
+
+/// World-browsing countries listing (`/{lang}/countries`).
 #[derive(Template, askama_web::WebTemplate)]
 #[template(path = "countries/list/index.html")]
 pub struct CountryListTemplate {
+    pub css_version: &'static str,
+    pub title: String,
+    pub sub_title_prefix: String,
+    pub sub_title_suffix: String,
+    pub sub_title: String,
+    pub sub_title_link: String,
+    pub sub_title_country_code: String,
+    pub header_color: String,
+    pub foreground_color: String,
+    pub menu_sections: Vec<MenuSection>,
+    pub i18n: I18n,
+    pub lang: String,
+    pub continents: Vec<ContinentDto>,
+}
+
+/// Operator/diagnostics page — added in this fork. Reachable only via
+/// direct URL (`/{lang}/admin`); it hosts the simulator chrome that was
+/// removed from the player-facing home page (machine info, workers,
+/// world counters, AI settings, holiday processing).
+#[derive(Template, askama_web::WebTemplate)]
+#[template(path = "countries/list/admin.html")]
+pub struct AdminTemplate {
     pub css_version: &'static str,
     pub computer_name: &'static str,
     pub cpu_brand: &'static str,
@@ -34,24 +75,13 @@ pub struct CountryListTemplate {
     pub menu_sections: Vec<MenuSection>,
     pub i18n: I18n,
     pub lang: String,
-    pub continents: Vec<ContinentDto>,
     pub version: &'static str,
     pub total_countries: usize,
     pub total_clubs: usize,
     pub total_players: usize,
-    pub show_download: bool,
-    /// Total configured distributed match workers (regardless of
-    /// status). Drives the Machine-card badge that links to the
-    /// dedicated workers page; zero hides the badge entirely.
     pub workers_count: usize,
-    /// Workers currently in `Ready` state — surfaced alongside the
-    /// total so the badge can read "3/4 ready" at a glance.
     pub workers_ready: usize,
-    /// True once an OpenAI-compatible LLM contract has been saved — the
-    /// "AI" badge renders ON when set, OFF otherwise.
     pub ai_enabled: bool,
-    /// Values pre-filled into the AI settings dialog: the saved contract
-    /// when configured, otherwise the built-in defaults.
     pub ai_base_url: String,
     pub ai_model: String,
     pub ai_api_key: String,
@@ -90,19 +120,11 @@ pub struct CountryDto {
     pub name: String,
 }
 
-pub async fn country_list_action(
-    State(state): State<GameAppData>,
-    headers: HeaderMap,
-    Path(route_params): Path<CountryListRequest>,
-) -> ApiResult<impl IntoResponse> {
-    let i18n = state.i18n.for_lang(&route_params.lang);
-    let guard = state.data.read().await;
-
-    let simulator_data = guard
-        .as_ref()
-        .ok_or_else(|| ApiError::InternalError("Simulator data not loaded".to_string()))?;
-
-    let continents: Vec<ContinentDto> = simulator_data
+fn build_continents(
+    simulator_data: &core::SimulatorData,
+    i18n: &I18n,
+) -> Vec<ContinentDto> {
+    simulator_data
         .continents
         .iter()
         .map(|continent| {
@@ -129,8 +151,119 @@ pub async fn country_list_action(
                 countries,
             }
         })
-        .collect();
+        .collect()
+}
 
+/// `/{lang}` — the game's front door. An active career sends the
+/// manager straight to their club; otherwise the landing page offers
+/// only "start a new career" and the saves list.
+pub async fn country_home_action(
+    State(state): State<GameAppData>,
+    Path(route_params): Path<CountryListRequest>,
+) -> ApiResult<Response> {
+    let i18n = state.i18n.for_lang(&route_params.lang);
+
+    // Active session → the club is the home page.
+    {
+        let guard = state.data.read().await;
+        if let Some(simulator_data) = guard.as_ref() {
+            if let Some(manager) = simulator_data.player_manager.as_ref() {
+                if let Some(team) = simulator_data.team(manager.team_id) {
+                    let url = format!("/{}/teams/{}", route_params.lang, team.slug);
+                    return Ok(Redirect::temporary(&url).into_response());
+                }
+            }
+        }
+    }
+
+    Ok(HomeTemplate {
+        css_version: CSS_VERSION,
+        title: i18n.t("site_name").to_string(),
+        sub_title_prefix: String::new(),
+        sub_title_suffix: String::new(),
+        sub_title: String::new(),
+        sub_title_link: String::new(),
+        sub_title_country_code: String::new(),
+        header_color: String::new(),
+        foreground_color: String::new(),
+        menu_sections: vec![],
+        lang: route_params.lang,
+        i18n,
+    }
+    .into_response())
+}
+
+/// `/{lang}/saves` — the landing page rendered directly (no redirect),
+/// so a running career can still reach the saves list to switch slots.
+pub async fn saves_page_action(
+    State(state): State<GameAppData>,
+    Path(route_params): Path<CountryListRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let i18n = state.i18n.for_lang(&route_params.lang);
+    Ok(HomeTemplate {
+        css_version: CSS_VERSION,
+        title: i18n.t("saves").to_string(),
+        sub_title_prefix: String::new(),
+        sub_title_suffix: String::new(),
+        sub_title: String::new(),
+        sub_title_link: String::new(),
+        sub_title_country_code: String::new(),
+        header_color: String::new(),
+        foreground_color: String::new(),
+        menu_sections: vec![],
+        lang: route_params.lang,
+        i18n,
+    })
+}
+
+/// `/{lang}/countries` — world browsing (continents → countries).
+pub async fn country_list_action(
+    State(state): State<GameAppData>,
+    Path(route_params): Path<CountryListRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let i18n = state.i18n.for_lang(&route_params.lang);
+    let guard = state.data.read().await;
+
+    let simulator_data = guard
+        .as_ref()
+        .ok_or_else(|| ApiError::InternalError("Simulator data not loaded".to_string()))?;
+
+    let continents = build_continents(simulator_data, &i18n);
+
+    let current_path = format!("/{}/countries", route_params.lang);
+    let menu_sections =
+        crate::views::search_menu(&i18n, &route_params.lang, &current_path);
+
+    Ok(CountryListTemplate {
+        css_version: CSS_VERSION,
+        title: i18n.t("world_section").to_string(),
+        sub_title_prefix: String::new(),
+        sub_title_suffix: String::new(),
+        sub_title: i18n.t("select_country_sub").to_string(),
+        sub_title_link: format!("/{}", route_params.lang),
+        sub_title_country_code: String::new(),
+        header_color: String::new(),
+        foreground_color: String::new(),
+        menu_sections,
+        lang: route_params.lang,
+        i18n,
+        continents,
+    })
+}
+
+/// `/{lang}/admin` — operator page, not linked from any menu.
+pub async fn admin_action(
+    State(state): State<GameAppData>,
+    Path(route_params): Path<CountryListRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let i18n = state.i18n.for_lang(&route_params.lang);
+    let guard = state.data.read().await;
+
+    let simulator_data = guard
+        .as_ref()
+        .ok_or_else(|| ApiError::InternalError("Simulator data not loaded".to_string()))?;
+
+    let continents = build_continents(simulator_data, &i18n);
     let total_countries = continents.iter().map(|c| c.countries.len()).sum();
     let mut total_clubs = 0usize;
     let mut total_players = 0usize;
@@ -145,12 +278,6 @@ pub async fn country_list_action(
         }
     }
 
-    let show_download = headers
-        .get(HOST)
-        .and_then(|v| v.to_str().ok())
-        .map(|h| h.starts_with("open-football.org") || h.starts_with("www.open-football.org"))
-        .unwrap_or(false);
-
     let workers_snapshot = state.workers.snapshot().await;
     let workers_count = workers_snapshot.len();
     let workers_ready = workers_snapshot
@@ -162,15 +289,15 @@ pub async fn country_list_action(
     let ai_enabled = ai_saved.is_some();
     let ai_settings = ai_saved.unwrap_or_else(LlmSettings::defaults);
 
-    Ok(CountryListTemplate {
+    Ok(AdminTemplate {
         css_version: CSS_VERSION,
         computer_name: &COMPUTER_NAME,
         cpu_brand: &CPU_BRAND,
         cores_count: *CPU_CORES,
-        title: format!("OpenFootball v{}", env!("CARGO_PKG_VERSION")),
+        title: i18n.t("admin_page_title").to_string(),
         sub_title_prefix: String::new(),
         sub_title_suffix: String::new(),
-        sub_title: i18n.t("select_country_sub").to_string(),
+        sub_title: String::new(),
         sub_title_link: format!("/{}", route_params.lang),
         sub_title_country_code: String::new(),
         header_color: String::new(),
@@ -178,12 +305,10 @@ pub async fn country_list_action(
         menu_sections: vec![],
         lang: route_params.lang,
         i18n,
-        continents,
         version: env!("CARGO_PKG_VERSION"),
         total_countries,
         total_clubs,
         total_players,
-        show_download,
         workers_count,
         workers_ready,
         ai_enabled,

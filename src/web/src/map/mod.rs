@@ -27,6 +27,8 @@ pub struct MapRequest {
 #[derive(Deserialize)]
 pub struct MapQuery {
     pub region: Option<String>,
+    /// Pyramid level inside the selected region (level 3 of the drill-down).
+    pub tier: Option<u8>,
 }
 
 #[derive(Template, askama_web::WebTemplate)]
@@ -65,27 +67,36 @@ pub struct MapRegionDto {
 }
 
 pub struct SelectedRegionDto {
+    pub code: String,
     pub name: String,
     pub club_count: usize,
-    pub districts: Vec<DistrictDto>,
+    /// False → level list (pyramid levels present in the region);
+    /// true → group list of the selected level.
+    pub show_groups: bool,
+    /// Display label of the selected level ("Klasa okręgowa", …).
+    pub tier_label: String,
+    pub levels: Vec<LevelDto>,
+    pub groups: Vec<GroupDto>,
 }
 
-pub struct DistrictDto {
-    pub name: String,
-    pub leagues: Vec<DistrictLeagueDto>,
-    pub clubs: Vec<DistrictClubDto>,
-}
-
-pub struct DistrictLeagueDto {
-    pub name: String,
-    pub slug: String,
+/// One pyramid level present in the region (e.g. "IV liga",
+/// "Klasa okręgowa"). The label is derived from the league names that
+/// actually exist at that tier, never hardcoded.
+pub struct LevelDto {
     pub tier: u8,
+    pub label: String,
+    pub league_count: usize,
     pub club_count: usize,
+    /// Set when the level has exactly one group — the level entry then
+    /// links straight to that league's page.
+    pub single_slug: String,
 }
 
-pub struct DistrictClubDto {
+/// One group of the selected level (e.g. "Klasa okręgowa Zamość").
+pub struct GroupDto {
     pub name: String,
     pub slug: String,
+    pub club_count: usize,
 }
 
 /// Resolve the voivodeship (first hierarchical segment) of a region code.
@@ -100,37 +111,45 @@ fn voivodeship_of(region_code: &str) -> Option<&'static str> {
     })
 }
 
-/// District part of a region code (everything after the voivodeship),
-/// empty for voivodeship-level codes.
-fn district_of<'c>(region_code: &'c str, voivodeship: &str) -> &'c str {
-    region_code
-        .strip_prefix(voivodeship)
-        .map(|rest| rest.trim_start_matches('-'))
-        .unwrap_or("")
-}
-
-/// Human label for a district code: dash-separated tokens are title-cased,
-/// roman-numeral group suffixes are upper-cased ("nowy-sacz-ii" ->
-/// "Nowy Sacz II").
-fn district_label(district: &str) -> String {
-    district
-        .split('-')
-        .map(|token| {
-            if matches!(
-                token,
-                "i" | "ii" | "iii" | "iv" | "v" | "vi" | "vii" | "viii" | "ix" | "x"
-            ) {
-                token.to_uppercase()
-            } else {
-                let mut chars = token.chars();
-                match chars.next() {
-                    Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                    None => String::new(),
-                }
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+/// Longest common word-prefix of the league names at one level —
+/// "Klasa okręgowa Zamość" + "Klasa okręgowa Lublin" → "Klasa okręgowa".
+/// Falls back to the first name when the names share nothing.
+fn common_level_label(names: &[&str]) -> String {
+    let Some(first) = names.first() else {
+        return String::new();
+    };
+    let first_words: Vec<&str> = first.split_whitespace().collect();
+    let mut shared = first_words.len();
+    for name in &names[1..] {
+        let words: Vec<&str> = name.split_whitespace().collect();
+        let mut k = 0;
+        while k < shared && k < words.len() && words[k] == first_words[k] {
+            k += 1;
+        }
+        shared = k;
+    }
+    if shared > 0 {
+        return first_words[..shared].join(" ");
+    }
+    // Mixed tier (e.g. "5. Liga mazowiecka I" alongside "Liga okręgowa
+    // Radom"): label with the most frequent two-word prefix instead.
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    for name in names {
+        let prefix = name
+            .split_whitespace()
+            .take(2)
+            .collect::<Vec<_>>()
+            .join(" ");
+        match counts.iter_mut().find(|(p, _)| *p == prefix) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((prefix, 1)),
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, n)| *n)
+        .map(|(p, _)| p)
+        .unwrap_or_else(|| first.to_string())
 }
 
 pub async fn map_action(
@@ -187,10 +206,11 @@ pub async fn map_action(
         })
         .collect();
 
-    // Level 2: districts of the selected voivodeship, derived from the
-    // region codes actually present in the world. BTreeMap keeps the
-    // voivodeship-level bucket (empty district key) first, then the
-    // named districts alphabetically.
+    // Levels 2/3 — added in this fork's hierarchy rework: the region
+    // drill-down lists the pyramid levels present in the voivodeship
+    // (derived from the tiers of its leagues); picking a level lists
+    // that level's groups (okręgi), each linking to its league page. A
+    // level with a single group links straight through to the league.
     let selected: Option<SelectedRegionDto> = query
         .region
         .as_deref()
@@ -201,22 +221,6 @@ pub async fn map_action(
                 .map(|v| (v.code, v.name))
         })
         .map(|(region_code, region_name)| {
-            // Display name of a district bucket: the voivodeship's own
-            // name for its plain-code (tier-5) bucket, "Mazowieckie I"
-            // for bare group numerals, the prettified district otherwise.
-            let district_display = |district: &str| -> String {
-                if district.is_empty() {
-                    region_name.to_string()
-                } else {
-                    let label = district_label(district);
-                    if label.chars().all(|c| matches!(c, 'I' | 'V' | 'X')) {
-                        format!("{} {}", region_name, label)
-                    } else {
-                        label
-                    }
-                }
-            };
-
             let mut teams_per_league: HashMap<u32, usize> = HashMap::new();
             for club in &country.clubs {
                 for team in &club.teams.teams {
@@ -226,8 +230,8 @@ pub async fn map_action(
                 }
             }
 
-            let mut districts: BTreeMap<String, DistrictDto> = BTreeMap::new();
-
+            // Leagues that play inside this voivodeship, grouped by tier.
+            let mut leagues_per_tier: BTreeMap<u8, Vec<&core::league::League>> = BTreeMap::new();
             for league in country
                 .leagues
                 .leagues
@@ -240,70 +244,82 @@ pub async fn map_action(
                 if voivodeship_of(code) != Some(region_code) {
                     continue;
                 }
-                let district = district_of(code, region_code);
-                let entry =
-                    districts
-                        .entry(district.to_string())
-                        .or_insert_with(|| DistrictDto {
-                            name: district_display(district),
-                            leagues: Vec::new(),
-                            clubs: Vec::new(),
-                        });
-                entry.leagues.push(DistrictLeagueDto {
-                    name: league.name.clone(),
-                    slug: league.slug.clone(),
-                    tier: league.settings.tier,
-                    club_count: teams_per_league.get(&league.id).copied().unwrap_or(0),
-                });
+                leagues_per_tier
+                    .entry(league.settings.tier)
+                    .or_default()
+                    .push(league);
+            }
+            for leagues in leagues_per_tier.values_mut() {
+                leagues.sort_by(|a, b| a.name.cmp(&b.name));
             }
 
-            let mut club_count = 0usize;
-            for club in &country.clubs {
-                let Some(code) = club.location.region_code.as_deref() else {
-                    continue;
-                };
-                if voivodeship_of(code) != Some(region_code) {
-                    continue;
-                }
-                // A club links through its main team's page (that page
-                // carries the "manage this club" button).
-                let Some(team) = club
-                    .teams
-                    .teams
+            let club_count = country
+                .clubs
+                .iter()
+                .filter(|club| {
+                    club.location
+                        .region_code
+                        .as_deref()
+                        .and_then(voivodeship_of)
+                        == Some(region_code)
+                })
+                .count();
+
+            // Level 3: groups of the requested tier (when it exists here).
+            if let Some(tier_leagues) =
+                query.tier.and_then(|tier| leagues_per_tier.get(&tier))
+            {
+                let names: Vec<&str> = tier_leagues.iter().map(|l| l.name.as_str()).collect();
+                let tier_label = common_level_label(&names);
+                let groups: Vec<GroupDto> = tier_leagues
                     .iter()
-                    .find(|t| t.team_type == core::TeamType::Main)
-                    .or_else(|| club.teams.teams.first())
-                else {
-                    continue;
+                    .map(|league| GroupDto {
+                        name: league.name.clone(),
+                        slug: league.slug.clone(),
+                        club_count: teams_per_league.get(&league.id).copied().unwrap_or(0),
+                    })
+                    .collect();
+                return SelectedRegionDto {
+                    code: region_code.to_string(),
+                    name: region_name.to_string(),
+                    club_count,
+                    show_groups: true,
+                    tier_label,
+                    levels: Vec::new(),
+                    groups,
                 };
-                club_count += 1;
-                let district = district_of(code, region_code);
-                let entry =
-                    districts
-                        .entry(district.to_string())
-                        .or_insert_with(|| DistrictDto {
-                            name: district_display(district),
-                            leagues: Vec::new(),
-                            clubs: Vec::new(),
-                        });
-                entry.clubs.push(DistrictClubDto {
-                    name: club.name.clone(),
-                    slug: team.slug.clone(),
-                });
             }
 
-            let mut districts: Vec<DistrictDto> = districts.into_values().collect();
-            for district in &mut districts {
-                district.leagues.sort_by(|a, b| {
-                    a.tier.cmp(&b.tier).then_with(|| a.name.cmp(&b.name))
-                });
-                district.clubs.sort_by(|a, b| a.name.cmp(&b.name));
-            }
+            // Level 2: one entry per pyramid level, in pyramid order.
+            let levels: Vec<LevelDto> = leagues_per_tier
+                .iter()
+                .map(|(tier, leagues)| {
+                    let names: Vec<&str> = leagues.iter().map(|l| l.name.as_str()).collect();
+                    LevelDto {
+                        tier: *tier,
+                        label: common_level_label(&names),
+                        league_count: leagues.len(),
+                        club_count: leagues
+                            .iter()
+                            .map(|l| teams_per_league.get(&l.id).copied().unwrap_or(0))
+                            .sum(),
+                        single_slug: if leagues.len() == 1 {
+                            leagues[0].slug.clone()
+                        } else {
+                            String::new()
+                        },
+                    }
+                })
+                .collect();
 
             SelectedRegionDto {
+                code: region_code.to_string(),
                 name: region_name.to_string(),
                 club_count,
-                districts,
+                show_groups: false,
+                tier_label: String::new(),
+                levels,
+                groups: Vec::new(),
             }
         });
 

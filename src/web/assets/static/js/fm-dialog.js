@@ -341,5 +341,6 @@
         });
     }
 
-    window.OpenFootballDialog = { open: open, confirm: confirm, close: close };
+    window.FmDialog = { open: open, confirm: confirm, close: close };
+    window.OpenFootballDialog = window.FmDialog; // legacy alias
 })();

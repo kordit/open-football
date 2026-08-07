@@ -463,6 +463,10 @@ mod tests {
     /// coaching-licence tiers and the author's own name, all written the
     /// same way in every language that uses the Latin alphabet.
     const PROSE_EXEMPT: &[&str] = &[
+        // Changed in this fork: the display name is the same brand string
+        // in every language by design.
+        "site_name",
+        "home_page_title",
         "about_me_name",
         "supporters_shield",
         "champions_league",

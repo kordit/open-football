@@ -1,7 +1,8 @@
 use crate::GameAppData;
 use crate::game::{
     game_cancel_action, game_create_action, game_process_action, game_processing_status_action,
-    game_save_action, game_session_action, save_load_action, saves_list_action,
+    game_save_action, game_session_action, game_takeover_action, save_load_action,
+    saves_list_action,
 };
 use axum::Router;
 use axum::routing::{get, post};
@@ -17,6 +18,8 @@ pub fn game_routes() -> Router<GameAppData> {
         // Added in this fork: save slots + session.
         .route("/api/game/save", post(game_save_action))
         .route("/api/game/session", get(game_session_action))
+        // Added in this fork: mid-career club switch within the same save.
+        .route("/api/game/takeover", post(game_takeover_action))
         .route("/api/saves", get(saves_list_action))
         .route("/api/saves/{slug}/load", post(save_load_action))
 }

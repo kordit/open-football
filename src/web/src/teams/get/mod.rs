@@ -53,6 +53,10 @@ pub struct TeamGetTemplate {
     pub show_manage_button: bool,
     /// Added in this fork: true when this team is the managed club.
     pub is_managed: bool,
+    /// Added in this fork: true while any career session is active — the
+    /// manage button then becomes a same-save "take over" action instead
+    /// of the new-career form.
+    pub session_active: bool,
     /// Gates the AI report button: true only on the Main team page when an
     /// LLM contract is configured (hidden on B / reserve / youth squads).
     pub ai_enabled: bool,
@@ -331,6 +335,7 @@ pub async fn team_get_action(
     let managed_team_id = simulator_data.player_manager.as_ref().map(|m| m.team_id);
     let is_managed = managed_team_id == Some(team.id);
     let show_manage_button = team.team_type == TeamType::Main && !is_managed;
+    let session_active = managed_team_id.is_some();
 
     Ok(TeamGetTemplate {
         css_version: CSS_VERSION,
@@ -361,6 +366,7 @@ pub async fn team_get_action(
         team_id: team.id,
         show_manage_button,
         is_managed,
+        session_active,
         ai_enabled,
         active_tab: "squad",
         show_finances_tab: team.team_type.is_own_team(),

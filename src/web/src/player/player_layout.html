@@ -162,7 +162,7 @@
 
     window.playerMoveOnFree = function(pid) {
         dd.classList.remove('fm-dd-open');
-        OpenFootballDialog.confirm({
+        FmDialog.confirm({
             title: '{{ i18n.t("move_on_free") }}',
             message: '{{ i18n.t("move_on_free_confirm") }}',
             confirmText: '{{ i18n.t("move_on_free") }}',
@@ -194,7 +194,7 @@
 
     window.playerCancelLoan = function(pid) {
         dd.classList.remove('fm-dd-open');
-        OpenFootballDialog.confirm({
+        FmDialog.confirm({
             title: '{{ i18n.t("cancel_loan") }}',
             message: '{{ i18n.t("cancel_loan_confirm") }}',
             confirmText: '{{ i18n.t("cancel_loan") }}',
@@ -223,7 +223,7 @@
         if (!isFreeAgent) {
             fields.push({ name: 'fee', label: '{{ i18n.t("transfer_fee") }}', type: 'number', placeholder: '0', value: '0' });
         }
-        OpenFootballDialog.open({
+        FmDialog.open({
             title: '{{ i18n.t("transfer_player") }}',
             fields: fields,
             confirmText: '{{ i18n.t("transfer") }}',
@@ -241,7 +241,7 @@
 
     window.playerLoan = function(pid) {
         dd.classList.remove('fm-dd-open');
-        OpenFootballDialog.open({
+        FmDialog.open({
             title: '{{ i18n.t("loan_player") }}',
             fields: [
                 destinationClubField(),
