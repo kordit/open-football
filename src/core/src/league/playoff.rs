@@ -1102,6 +1102,8 @@ mod tests {
                 playoff: None,
             }),
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         }
     }
 

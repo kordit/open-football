@@ -441,6 +441,13 @@ pub struct LeagueSettings {
     /// half), each a single round-robin with its own table, playoff and
     /// champion. Relegation reads the annual aggregate across both.
     pub split_season: bool,
+    /// Added in this fork: explicit promotion edge — the league whose table
+    /// this league's winners are promoted into. See
+    /// `end_of_period::process_promotion_relegation`.
+    pub promotes_to: Option<u32>,
+    /// Added in this fork: hierarchical region code (e.g. "lu-zamosc") for
+    /// region-aware relegation routing between grouped leagues.
+    pub region_code: Option<String>,
 }
 
 /// Identifies a league as one group within a larger competition.
@@ -523,6 +530,8 @@ mod split_season_tests {
             relegation_spots: 1,
             league_group: None,
             split_season: true,
+            promotes_to: None,
+            region_code: None,
         };
         League::new(
             1,

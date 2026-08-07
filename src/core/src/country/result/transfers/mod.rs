@@ -549,6 +549,8 @@ mod side_channel_tests {
                         relegation_spots: 0,
                         league_group: None,
                         split_season: false,
+                        promotes_to: None,
+                        region_code: None,
                     },
                     false,
                 )]))
@@ -697,6 +699,8 @@ mod pending_signal_delivery_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             )]))

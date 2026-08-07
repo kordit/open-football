@@ -87,6 +87,8 @@ impl DatabaseGenerator {
                         }),
                     }),
                     split_season: league.settings.split_season,
+                    promotes_to: league.promotes_to,
+                    region_code: league.region_code.clone(),
                 };
 
                 let mut l = League::new(
@@ -129,6 +131,8 @@ impl DatabaseGenerator {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
 
         let (slug, name, configured_rep) = match &country.domestic_cup {
@@ -217,6 +221,8 @@ impl DatabaseGenerator {
                 relegation_spots: 0,
                 league_group: None,
                 split_season: false,
+            promotes_to: None,
+            region_code: None,
             };
             let reputation = primary.reputation;
 
@@ -361,6 +367,8 @@ impl DatabaseGenerator {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 };
 
                 let youth_league = League::new(
@@ -441,6 +449,8 @@ mod tests {
                 relegation_spots: 3,
                 league_group: None,
                 split_season: false,
+            promotes_to: None,
+            region_code: None,
             },
             false,
         )

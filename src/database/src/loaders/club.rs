@@ -29,6 +29,11 @@ pub struct ClubEntity {
     /// satellites are dropped from the clubs list during compilation.
     #[serde(default)]
     pub parent_club: Option<ParentClubEntity>,
+    /// Added in this fork: hierarchical region code of the club's home
+    /// (e.g. "lu-zamosc"). Used to route relegation into the geographically
+    /// matching regional group.
+    #[serde(default)]
+    pub region_code: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]

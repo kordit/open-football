@@ -38,6 +38,18 @@ pub struct LeagueEntity {
     /// within the same competition.
     #[serde(default)]
     pub league_group: Option<LeagueGroupEntity>,
+    /// Added in this fork: id of the league this league's winners are
+    /// promoted into. When any league in a country carries these edges,
+    /// promotion/relegation follows the explicit graph (supporting N
+    /// regional groups feeding one upper league) instead of the positional
+    /// tier pairing.
+    #[serde(default)]
+    pub promotes_to: Option<u32>,
+    /// Added in this fork: hierarchical region code (e.g. "lu-zamosc" —
+    /// voivodeship-district). Relegated clubs are routed to the feeder
+    /// group whose region code shares the longest prefix with the club's.
+    #[serde(default)]
+    pub region_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

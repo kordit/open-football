@@ -223,6 +223,7 @@ impl DatabaseGenerator {
                     name: club.name.clone(),
                     location: Location {
                         city_id: club.location.city_id,
+                        region_code: club.region_code.clone(),
                     },
                     board: ClubBoard::new(),
                     status: ClubStatus::Professional,

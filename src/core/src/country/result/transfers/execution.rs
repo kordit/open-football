@@ -2545,6 +2545,8 @@ mod country_pair_execution_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             )
@@ -2944,6 +2946,8 @@ mod development_pathway_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
@@ -3025,6 +3029,8 @@ mod development_pathway_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
@@ -3091,6 +3097,8 @@ mod development_pathway_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
@@ -3756,6 +3764,8 @@ mod loan_history_source_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             )

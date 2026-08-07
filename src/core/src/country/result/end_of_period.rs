@@ -2127,9 +2127,21 @@ impl CountryResult {
             );
         }
 
+        // Modified from upstream: when explicit `promotes_to` edges exist,
+        // the promotion/relegation flow between the connected leagues is
+        // resolved by the graph pass (N regional feeders per upper league,
+        // region-aware relegation routing). Leagues outside the graph keep
+        // the legacy positional pairing below.
+        let graph_handled =
+            Self::process_promotion_graph(country, date, &mut promoted_club_ids);
+
         // For each league with relegation_spots > 0, find its paired league
         for &(tier1_id, tier1_tier, relegation_spots, _) in &league_info {
-            if relegation_spots == 0 || tier1_tier == 0 || split_handled.contains(&tier1_id) {
+            if relegation_spots == 0
+                || tier1_tier == 0
+                || split_handled.contains(&tier1_id)
+                || graph_handled.contains(&tier1_id)
+            {
                 continue;
             }
 
@@ -2209,6 +2221,221 @@ impl CountryResult {
         for league in &mut country.leagues.leagues {
             league.final_table = None;
         }
+    }
+
+    /// Added in this fork: count of matching leading `-`-separated segments
+    /// of two hierarchical region codes ("lu-zamosc" vs "lu-lublin" → 1,
+    /// "lu-zamosc" vs "lu-zamosc" → 2, "" vs anything → 0).
+    fn region_match_score(a: &str, b: &str) -> usize {
+        if a.is_empty() || b.is_empty() {
+            return 0;
+        }
+        a.split('-')
+            .zip(b.split('-'))
+            .take_while(|(x, y)| x == y)
+            .count()
+    }
+
+    /// Added in this fork: explicit promotion-graph pass.
+    ///
+    /// Every league whose settings carry `promotes_to` is a *feeder* of that
+    /// upper league. For each upper league with feeders:
+    /// - the top `promotion_spots` of every feeder are promoted into it
+    ///   (truncated round-robin across feeders when the upper league
+    ///   relegates fewer teams than the feeders promote — the swap is always
+    ///   balanced so league sizes stay constant),
+    /// - the bottom `relegation_spots` of the upper league are relegated,
+    ///   each routed to the feeder whose `region_code` shares the longest
+    ///   segment prefix with the club's `location.region_code`; ties go to
+    ///   the feeder with the largest net outflow this season (keeps group
+    ///   sizes balanced), then to the lowest feeder id.
+    ///
+    /// Returns every league id that participates in any edge; those leagues
+    /// are excluded from the legacy positional pairing. Leagues at the
+    /// bottom of the modeled pyramid simply have no feeders — nothing is
+    /// relegated out of the modeled world.
+    fn process_promotion_graph(
+        country: &mut Country,
+        date: NaiveDate,
+        promoted_club_ids: &mut Vec<u32>,
+    ) -> HashSet<u32> {
+        use std::collections::BTreeMap;
+
+        let mut handled: HashSet<u32> = HashSet::new();
+
+        let edges: Vec<(u32, u32)> = country
+            .leagues
+            .leagues
+            .iter()
+            .filter(|l| !l.friendly)
+            .filter_map(|l| l.settings.promotes_to.map(|upper| (l.id, upper)))
+            .collect();
+        if edges.is_empty() {
+            return handled;
+        }
+
+        let mut feeders_by_upper: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+        for (lower, upper) in &edges {
+            feeders_by_upper.entry(*upper).or_default().push(*lower);
+            handled.insert(*lower);
+            handled.insert(*upper);
+        }
+        for feeders in feeders_by_upper.values_mut() {
+            feeders.sort_unstable();
+        }
+
+        for (upper_id, feeder_ids) in feeders_by_upper {
+            let Some(upper) = country.leagues.leagues.iter().find(|l| l.id == upper_id) else {
+                info!("promotion-graph: upper league {upper_id} not found — skipped");
+                continue;
+            };
+            let relegation_spots = upper.settings.relegation_spots as usize;
+            let Some(upper_table) = upper.final_table.clone() else {
+                info!("promotion-graph: upper league {upper_id} missing final_table — skipped");
+                continue;
+            };
+
+            // Per-feeder promotion candidates (top promotion_spots of each
+            // feeder's final table) plus the feeder's promotion_spots for
+            // the promotion-window expectation logic inside the swap.
+            let mut promoted_per_feeder: Vec<(u32, u8, Vec<u32>)> = Vec::new();
+            for feeder_id in &feeder_ids {
+                let Some(feeder) = country.leagues.leagues.iter().find(|l| l.id == *feeder_id)
+                else {
+                    continue;
+                };
+                let spots = feeder.settings.promotion_spots;
+                let teams: Vec<u32> = feeder
+                    .final_table
+                    .as_ref()
+                    .map(|table| {
+                        table
+                            .iter()
+                            .take(spots as usize)
+                            .map(|r| r.team_id)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                promoted_per_feeder.push((*feeder_id, spots, teams));
+            }
+
+            let total_promoted: usize = promoted_per_feeder.iter().map(|(_, _, t)| t.len()).sum();
+            let swap_total = relegation_spots.min(total_promoted);
+            if swap_total == 0 {
+                if relegation_spots != 0 || total_promoted != 0 {
+                    info!(
+                        "promotion-graph: upper {upper_id} swap truncated to zero \
+                         (relegation_spots={relegation_spots}, promoted candidates={total_promoted})"
+                    );
+                }
+                continue;
+            }
+
+            // Balance the swap: keep at most swap_total promotions, taken
+            // round-robin (every feeder's champion before any feeder's
+            // runner-up).
+            if total_promoted > swap_total {
+                let mut kept: Vec<(u32, u8, Vec<u32>)> = promoted_per_feeder
+                    .iter()
+                    .map(|(f, s, _)| (*f, *s, Vec::new()))
+                    .collect();
+                let mut count = 0usize;
+                let mut round = 0usize;
+                'fill: loop {
+                    let mut any = false;
+                    for (i, (_, _, teams)) in promoted_per_feeder.iter().enumerate() {
+                        if let Some(team) = teams.get(round) {
+                            kept[i].2.push(*team);
+                            count += 1;
+                            any = true;
+                            if count == swap_total {
+                                break 'fill;
+                            }
+                        }
+                    }
+                    if !any {
+                        break;
+                    }
+                    round += 1;
+                }
+                promoted_per_feeder = kept;
+            }
+
+            let relegated: Vec<u32> = upper_table
+                .iter()
+                .rev()
+                .take(swap_total)
+                .map(|r| r.team_id)
+                .collect();
+
+            let feeder_regions: Vec<(u32, String)> = feeder_ids
+                .iter()
+                .map(|feeder_id| {
+                    let region = country
+                        .leagues
+                        .leagues
+                        .iter()
+                        .find(|l| l.id == *feeder_id)
+                        .and_then(|l| l.settings.region_code.clone())
+                        .unwrap_or_default();
+                    (*feeder_id, region)
+                })
+                .collect();
+
+            let outgoing: HashMap<u32, usize> = promoted_per_feeder
+                .iter()
+                .map(|(f, _, teams)| (*f, teams.len()))
+                .collect();
+            let mut incoming: HashMap<u32, usize> = HashMap::new();
+            let mut relegated_per_feeder: HashMap<u32, Vec<u32>> = HashMap::new();
+
+            for team_id in &relegated {
+                let club_region = country
+                    .clubs
+                    .iter()
+                    .find(|c| c.teams.teams.iter().any(|t| t.id == *team_id))
+                    .and_then(|c| c.location.region_code.clone())
+                    .unwrap_or_default();
+
+                let Some(target) = feeder_regions
+                    .iter()
+                    .max_by_key(|(feeder_id, region)| {
+                        let score = Self::region_match_score(&club_region, region);
+                        let net_outflow = *outgoing.get(feeder_id).unwrap_or(&0) as i64
+                            - *incoming.get(feeder_id).unwrap_or(&0) as i64;
+                        (score, net_outflow, std::cmp::Reverse(*feeder_id))
+                    })
+                    .map(|(feeder_id, _)| *feeder_id)
+                else {
+                    continue;
+                };
+
+                *incoming.entry(target).or_insert(0) += 1;
+                relegated_per_feeder.entry(target).or_default().push(*team_id);
+            }
+
+            for (feeder_id, feeder_spots, promoted_teams) in &promoted_per_feeder {
+                let relegated_teams = relegated_per_feeder
+                    .get(feeder_id)
+                    .cloned()
+                    .unwrap_or_default();
+                if promoted_teams.is_empty() && relegated_teams.is_empty() {
+                    continue;
+                }
+                Self::apply_promotion_relegation_swap(
+                    country,
+                    date,
+                    upper_id,
+                    *feeder_id,
+                    *feeder_spots,
+                    &relegated_teams,
+                    promoted_teams,
+                    promoted_club_ids,
+                );
+            }
+        }
+
+        handled
     }
 
     /// Swap pairs for split-season grouped competitions (Argentine
@@ -2777,6 +3004,8 @@ mod tests {
                 relegation_spots: 3,
                 league_group: None,
                 split_season: false,
+                promotes_to: None,
+                region_code: None,
             },
             false,
         );
@@ -2824,6 +3053,8 @@ mod tests {
                     playoff: None,
                 }),
                 split_season: false,
+                promotes_to: None,
+                region_code: None,
             },
             false,
         )
@@ -3378,6 +3609,8 @@ mod tests {
                 relegation_spots: rel,
                 league_group: None,
                 split_season: false,
+                promotes_to: None,
+                region_code: None,
             },
             false,
         );
@@ -3504,6 +3737,231 @@ mod tests {
                 .iter()
                 .all(|l| l.final_table.is_none())
         );
+    }
+
+    // ── Fork: explicit promotion-graph (promotes_to / region_code) ──
+
+    fn make_graph_league(
+        id: u32,
+        tier: u8,
+        promo: u8,
+        rel: u8,
+        promotes_to: Option<u32>,
+        region: Option<&str>,
+        rows: Vec<(u32, u8, u8)>,
+    ) -> League {
+        let mut league = make_league_with_settings(id, tier, promo, rel, rows);
+        league.settings.promotes_to = promotes_to;
+        league.settings.region_code = region.map(str::to_string);
+        league
+    }
+
+    fn make_club_with_region(id: u32, teams: Vec<crate::Team>, region: &str) -> Club {
+        let mut club = make_club(id, teams);
+        club.location.region_code = Some(region.to_string());
+        club
+    }
+
+    #[test]
+    fn promotion_graph_merges_feeder_winners_and_routes_relegation_by_region() {
+        // Upper league 1 (rel 2) fed by two regional groups:
+        //   league 2 = region lu-zamosc, league 3 = region lu-lublin.
+        // Upper clubs: 12 is a Zamość-area club, 13 a Lublin-area club.
+        let upper_clubs: Vec<Club> = vec![
+            make_club_with_region(10, vec![make_simple_team(10, 10, 1)], "lu-pulawy"),
+            make_club_with_region(11, vec![make_simple_team(11, 11, 1)], "lu-chelm"),
+            make_club_with_region(12, vec![make_simple_team(12, 12, 1)], "lu-zamosc"),
+            make_club_with_region(13, vec![make_simple_team(13, 13, 1)], "lu-lublin"),
+        ];
+        let zamosc_clubs: Vec<Club> = (20..=22)
+            .map(|id| make_club_with_region(id, vec![make_simple_team(id, id, 2)], "lu-zamosc"))
+            .collect();
+        let lublin_clubs: Vec<Club> = (30..=32)
+            .map(|id| make_club_with_region(id, vec![make_simple_team(id, id, 3)], "lu-lublin"))
+            .collect();
+
+        let upper = make_graph_league(
+            1,
+            5,
+            0,
+            2,
+            None,
+            Some("lu"),
+            vec![(10, 30, 70), (11, 30, 60), (12, 30, 30), (13, 30, 20)],
+        );
+        let zamosc = make_graph_league(
+            2,
+            6,
+            1,
+            0,
+            Some(1),
+            Some("lu-zamosc"),
+            vec![(20, 30, 80), (21, 30, 50), (22, 30, 30)],
+        );
+        let lublin = make_graph_league(
+            3,
+            6,
+            1,
+            0,
+            Some(1),
+            Some("lu-lublin"),
+            vec![(30, 30, 75), (31, 30, 55), (32, 30, 25)],
+        );
+
+        let mut all_clubs = upper_clubs;
+        all_clubs.extend(zamosc_clubs);
+        all_clubs.extend(lublin_clubs);
+        let mut country = build_country(all_clubs, vec![upper, zamosc, lublin]);
+
+        CountryResult::process_promotion_relegation(&mut country, d(2032, 6, 1));
+
+        let league_of = |club_id: u32, country: &Country| {
+            country
+                .clubs
+                .iter()
+                .find(|c| c.id == club_id)
+                .and_then(|c| c.teams.iter().next())
+                .and_then(|t| t.league_id)
+        };
+
+        // Both group winners are promoted into the upper league.
+        assert_eq!(league_of(20, &country), Some(1), "Zamość champion goes up");
+        assert_eq!(league_of(30, &country), Some(1), "Lublin champion goes up");
+
+        // Relegated clubs land in the geographically matching group.
+        assert_eq!(league_of(12, &country), Some(2), "Zamość club drops to KO Zamość");
+        assert_eq!(league_of(13, &country), Some(3), "Lublin club drops to KO Lublin");
+
+        // Everyone else stays put.
+        assert_eq!(league_of(10, &country), Some(1));
+        assert_eq!(league_of(21, &country), Some(2));
+        assert_eq!(league_of(31, &country), Some(3));
+
+        // Group sizes are preserved: 4 / 3 / 3.
+        for (league_id, expected) in [(1u32, 4usize), (2, 3), (3, 3)] {
+            let count = country
+                .clubs
+                .iter()
+                .flat_map(|c| c.teams.teams.iter())
+                .filter(|t| t.league_id == Some(league_id))
+                .count();
+            assert_eq!(count, expected, "league {league_id} size drifted");
+        }
+    }
+
+    #[test]
+    fn promotion_graph_bottom_of_modeled_pyramid_relegates_nobody() {
+        // A feeder league with relegation_spots > 0 but no feeders of its
+        // own (bottom of the modeled world): its own relegation is skipped,
+        // its champion is still promoted.
+        let upper_clubs: Vec<Club> = (10..=12)
+            .map(|id| make_club_with_region(id, vec![make_simple_team(id, id, 1)], "lu"))
+            .collect();
+        let feeder_clubs: Vec<Club> = (20..=22)
+            .map(|id| make_club_with_region(id, vec![make_simple_team(id, id, 2)], "lu"))
+            .collect();
+
+        let upper = make_graph_league(
+            1,
+            7,
+            0,
+            1,
+            None,
+            Some("lu"),
+            vec![(10, 30, 70), (11, 30, 50), (12, 30, 20)],
+        );
+        let feeder = make_graph_league(
+            2,
+            8,
+            1,
+            2,
+            Some(1),
+            Some("lu"),
+            vec![(20, 30, 80), (21, 30, 40), (22, 30, 30)],
+        );
+
+        let mut all_clubs = upper_clubs;
+        all_clubs.extend(feeder_clubs);
+        let mut country = build_country(all_clubs, vec![upper, feeder]);
+
+        CountryResult::process_promotion_relegation(&mut country, d(2032, 6, 1));
+
+        let league_of = |club_id: u32, country: &Country| {
+            country
+                .clubs
+                .iter()
+                .find(|c| c.id == club_id)
+                .and_then(|c| c.teams.iter().next())
+                .and_then(|t| t.league_id)
+        };
+
+        // Champion up, bottom of upper down into the feeder.
+        assert_eq!(league_of(20, &country), Some(1));
+        assert_eq!(league_of(12, &country), Some(2));
+        // Feeder's own bottom teams stay — no tier below is modeled.
+        assert_eq!(league_of(21, &country), Some(2));
+        assert_eq!(league_of(22, &country), Some(2));
+    }
+
+    #[test]
+    fn promotion_graph_balances_swap_when_feeders_outnumber_relegation_spots() {
+        // Four feeder groups promote 1 each but the upper league only
+        // relegates 2 — the swap is truncated round-robin (feeders in id
+        // order), keeping the upper league size constant.
+        let upper_clubs: Vec<Club> = (10..=13)
+            .map(|id| make_club_with_region(id, vec![make_simple_team(id, id, 1)], "reg-a"))
+            .collect();
+        let mut all_clubs = upper_clubs;
+        let mut leagues = vec![make_graph_league(
+            1,
+            5,
+            0,
+            2,
+            None,
+            Some("reg"),
+            vec![(10, 30, 70), (11, 30, 60), (12, 30, 30), (13, 30, 20)],
+        )];
+        for (i, feeder_id) in [2u32, 3, 4, 5].iter().enumerate() {
+            let base = 20 + (i as u32) * 10;
+            let region = format!("reg-{}", ["a", "b", "c", "d"][i]);
+            all_clubs.extend((base..base + 2).map(|id| {
+                make_club_with_region(id, vec![make_simple_team(id, id, *feeder_id)], &region)
+            }));
+            leagues.push(make_graph_league(
+                *feeder_id,
+                6,
+                1,
+                0,
+                Some(1),
+                Some(&region),
+                vec![(base, 30, 60), (base + 1, 30, 30)],
+            ));
+        }
+        let mut country = build_country(all_clubs, leagues);
+
+        CountryResult::process_promotion_relegation(&mut country, d(2032, 6, 1));
+
+        let promoted: usize = country
+            .clubs
+            .iter()
+            .flat_map(|c| c.teams.teams.iter())
+            .filter(|t| t.league_id == Some(1))
+            .count();
+        assert_eq!(promoted, 4, "upper league size must stay constant");
+
+        // Exactly two feeder champions went up (round-robin order: feeders 2, 3).
+        let league_of = |club_id: u32, country: &Country| {
+            country
+                .clubs
+                .iter()
+                .find(|c| c.id == club_id)
+                .and_then(|c| c.teams.iter().next())
+                .and_then(|t| t.league_id)
+        };
+        assert_eq!(league_of(20, &country), Some(1));
+        assert_eq!(league_of(30, &country), Some(1));
+        assert_eq!(league_of(40, &country), Some(4), "feeder 4 champion stays");
+        assert_eq!(league_of(50, &country), Some(5), "feeder 5 champion stays");
     }
 
     #[test]
@@ -3922,6 +4380,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
         let mut league = League::new(
             cup_id,
@@ -4141,6 +4601,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
         let mut league_cup = League::new(
             800_000_004,

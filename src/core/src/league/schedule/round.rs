@@ -277,6 +277,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
         let tours = RoundSchedule::new()
             .generate(1, "t", Season::new(2026), &teams, &settings)
@@ -336,6 +338,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
         let tours = RoundSchedule::new()
             .generate(1, "t", Season::new(2026), &teams, &settings)
@@ -394,6 +398,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
         let tours = RoundSchedule::new()
             .generate(1, "t", Season::new(2026), &teams, &settings)
@@ -450,6 +456,8 @@ mod tests {
             relegation_spots: 1,
             league_group: None,
             split_season: true,
+            promotes_to: None,
+            region_code: None,
         };
         let tours = RoundSchedule::new()
             .generate(1, "t", Season::new(2026), &teams, &settings)
@@ -513,6 +521,8 @@ mod tests {
             relegation_spots: 0,
             league_group: None,
             split_season: false,
+            promotes_to: None,
+            region_code: None,
         };
 
         let schedule_tours = schedule

@@ -3018,6 +3018,8 @@ mod development_pathway_protection_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
@@ -3298,6 +3300,8 @@ mod seller_fee_floor_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
@@ -3879,6 +3883,8 @@ mod saga_visibility_tests {
                     relegation_spots: 0,
                     league_group: None,
                     split_season: false,
+                    promotes_to: None,
+                    region_code: None,
                 },
                 false,
             );
