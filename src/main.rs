@@ -105,6 +105,9 @@ async fn main() {
         workers,
         // Added in this fork: no active save slot at startup.
         saves: Arc::new(RwLock::new(web::SaveMeta::new())),
+        // Added in this fork: no live match at startup. Filled while a
+        // manager is playing one of their own fixtures.
+        live: web::LiveRegistry::new(),
     };
 
     // Modified from upstream: no browser is opened. This process serves

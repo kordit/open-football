@@ -12,7 +12,7 @@ use crate::continent::competitions::{
 };
 use crate::league::PlayoffRoundLabel;
 use crate::r#match::player::statistics::MatchStatisticType;
-use crate::r#match::{FieldSquad, MatchResult, SubstitutionReason};
+use crate::r#match::{FieldSquad, MatchResult};
 use crate::simulator::SimulatorData;
 use crate::{
     Club, Country, HappinessEventType, Person, Player, PlayerFieldPositionGroup, Team, TeamType,

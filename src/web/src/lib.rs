@@ -15,9 +15,11 @@ mod game;
 pub mod i18n;
 // Added in this fork: manager-set starting XI.
 mod lineup;
+pub mod live;
 mod r#match;
 mod player;
 mod routes;
+pub use live::LiveRegistry;
 pub mod settings;
 // Added in this fork: world snapshot consumed by the Laravel panel.
 mod snapshot;
@@ -108,6 +110,9 @@ pub struct GameAppData {
     /// Added in this fork: save-slot session state — active slot slug,
     /// saves directory, last autosave date.
     pub saves: Arc<RwLock<SaveMeta>>,
+    /// Added in this fork: the one match the manager may be playing by hand.
+    /// Empty almost always; holds a session between kickoff and full time.
+    pub live: crate::live::LiveRegistry,
 }
 
 impl Clone for GameAppData {
@@ -122,6 +127,7 @@ impl Clone for GameAppData {
             events_i18n: Arc::clone(&self.events_i18n),
             workers: self.workers.clone(),
             saves: Arc::clone(&self.saves),
+            live: self.live.clone(),
         }
     }
 }

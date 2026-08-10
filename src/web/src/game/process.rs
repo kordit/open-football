@@ -79,17 +79,17 @@ pub async fn game_process_action(
 /// One processing run behind `POST /api/game/process`: simulates an owned
 /// deep copy of the world on a blocking thread and publishes snapshots
 /// into the shared slot without stalling readers.
-struct ProcessingRun {
-    handle: Handle,
-    data: Arc<RwLock<Option<Arc<SimulatorData>>>>,
-    i18n: Arc<I18nManager>,
-    cancel_flag: Arc<AtomicBool>,
+pub(crate) struct ProcessingRun {
+    pub(crate) handle: Handle,
+    pub(crate) data: Arc<RwLock<Option<Arc<SimulatorData>>>>,
+    pub(crate) i18n: Arc<I18nManager>,
+    pub(crate) cancel_flag: Arc<AtomicBool>,
 }
 
 impl ProcessingRun {
     /// Simulate `days` daily ticks, publishing progress once per simulated
     /// week and once at the end.
-    fn execute(self, mut simulator_data: SimulatorData, days: u32) {
+    pub(crate) fn execute(self, mut simulator_data: SimulatorData, days: u32) {
         let mut days_since_sync: u32 = 0;
 
         for _ in 0..days {

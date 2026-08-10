@@ -12,6 +12,7 @@ use crate::GameAppData;
 use crate::date::current_date_routes;
 use crate::game::game_routes;
 use crate::lineup::routes::lineup_routes;
+use crate::live::routes::live_routes;
 use crate::r#match::routes::match_routes;
 use crate::player::player_routes;
 use crate::snapshot::routes::snapshot_routes;
@@ -41,6 +42,11 @@ async fn root() -> impl IntoResponse {
             "POST /api/game/save",
             "POST /api/game/takeover",
             "POST /api/game/lineup",
+            "POST /api/live/start",
+            "GET  /api/live/state",
+            "POST /api/live/advance",
+            "POST /api/live/command",
+            "POST /api/live/abandon",
             "GET  /api/saves",
             "POST /api/saves/{slug}/load",
             "GET  /api/world/snapshot",
@@ -67,6 +73,7 @@ impl ServerRoutes {
             .merge(game_routes())
             // Added in this fork: manager-set starting XI.
             .merge(lineup_routes())
+            .merge(live_routes())
             // Added in this fork: read model for the Laravel panel.
             .merge(snapshot_routes())
             .merge(player_routes())

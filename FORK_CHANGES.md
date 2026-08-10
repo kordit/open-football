@@ -101,6 +101,36 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
 
   Upstream has no such thing: a match runs to its final whistle or not at all.
 
+- `src/web/src/live/` (`mod.rs`, `routes.rs`) — `/api/live/*`, the control
+  plane of a match the manager plays themselves. Five short endpoints
+  (`start`, `state`, `advance`, `command`, `abandon`); the long-running thing
+  is the matchday, started by `start` and then left to run.
+
+  Separate from `POST /api/game/process` because that endpoint holds the
+  connection until the day is simulated, and a day now lasts as long as a
+  football match — the panel's client gives up at 900 s, a match at real speed
+  is ~5400. A live match is a session plus a stream of short requests.
+
+  Pull, never push: the panel asks for the next slice of match time. Pause
+  costs nothing (stop asking and the engine sits idle), speed is the client's
+  business (8× is a wider window, not more requests), and a lost reply costs
+  one repeat because the cursor is in milliseconds and travels in the request.
+  `advance` answers a cursor mismatch with 409 and the real cursor, so two
+  panel tabs correct each other instead of silently interleaving.
+
+  The `LiveMatch` lives on the simulation thread — the one parked inside
+  `MatchPlayEnginePool::play` waiting for this fixture's result. Handlers send
+  it messages and wait; that is what puts a substitution between two ticks
+  rather than inside one. The waits run on `spawn_blocking`, never on a tokio
+  worker.
+
+  The watchdog is `recv_timeout` **on that same thread**, deliberately: a
+  watchdog in its own task can die and leave the simulation thread — and with
+  it the process lock and the whole matchday — blocked forever. Two minutes of
+  silence, or a three-hour ceiling, and the assistant finishes the match. So
+  does `abandon`: there is no un-playing a fixture, and the league is waiting
+  for a result either way.
+
 - `src/core/src/match/dispatch.rs` — added `MatchInterceptor` and
   `MatchInterceptorRegistry`: one fixture claimed out of a matchday and played
   by hand. Deliberately not a second `MatchDispatcher` — that trait is
@@ -195,6 +225,14 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   when international football is disabled.
 - `src/core/src/continent/result/mod.rs` — continental club competition
   draws/simulation skipped when international football is disabled.
+- `src/web/src/lib.rs`, `src/main.rs` — `GameAppData` gained `live:
+  LiveRegistry`, the one live session a process can hold (one, because the
+  engine holds one world per process).
+- `src/web/src/routes.rs` — merged the live route group and listed it in the
+  service descriptor.
+- `src/web/src/game/process.rs` — `ProcessingRun` and `execute` widened to
+  `pub(crate)` so the live start handler can run a matchday without awaiting
+  it. (File is itself fork-added.)
 - `src/core/src/match/pool.rs` — `play()` consults the interceptor before the
   dispatcher (which would otherwise ship the manager's own match to a remote
   worker), and when a fixture is claimed, plays **the rest of the day
