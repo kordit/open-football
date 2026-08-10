@@ -1,5 +1,8 @@
 use crate::r#match::engine::FootballEngine;
-use crate::r#match::{Match, MatchDispatcherRegistry, MatchResult, MatchResultRaw, MatchSquad};
+use crate::r#match::{
+    Match, MatchDispatcherRegistry, MatchInterceptor, MatchInterceptorRegistry, MatchResult,
+    MatchResultRaw, MatchSquad,
+};
 use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -64,6 +67,53 @@ impl MatchPlayEnginePool {
     /// claims the batch (no local execution); on `Err` it hands the
     /// input back and the pool runs the local rayon path.
     pub fn play(&self, matches: Vec<Match>) -> Vec<MatchResult> {
+        // Modified from upstream: one fixture in the batch may belong to a
+        // human. Checked before the dispatcher, because the dispatcher claims
+        // batches whole and would ship the manager's own match to a worker.
+        if let Some(interceptor) = MatchInterceptorRegistry::try_get() {
+            if let Some(index) = matches.iter().position(|m| interceptor.claims(m.id())) {
+                return self.play_intercepted(matches, index, interceptor.as_ref());
+            }
+        }
+
+        self.play_dispatched(matches)
+    }
+
+    /// The rest of the day, while somebody plays theirs.
+    ///
+    /// The two run **at the same time**, and that is the entire point: a
+    /// manager watching ninety minutes of their own match is ninety minutes of
+    /// wall clock the other four hundred fixtures were going to cost anyway.
+    /// Running them first and the human's second makes the manager wait for
+    /// both; running them together makes a matchday cost the longer of the
+    /// two. It also means the tables are live while the match is on.
+    ///
+    /// `std::thread::scope` because neither side is `'static` — the batch
+    /// borrows this pool, and the interceptor is borrowed from the registry.
+    fn play_intercepted(
+        &self,
+        mut matches: Vec<Match>,
+        index: usize,
+        interceptor: &dyn MatchInterceptor,
+    ) -> Vec<MatchResult> {
+        let claimed = matches.remove(index);
+
+        let (mut results, mine) = std::thread::scope(|scope| {
+            let rest = scope.spawn(|| self.play_dispatched(matches));
+            // The human's match blocks this thread until the final whistle.
+            // The interceptor owns the watchdog that stops it being forever.
+            let mine = interceptor.play(claimed);
+            (rest.join().expect("matchday batch thread panicked"), mine)
+        });
+
+        // Back on its own index: `WorldMatchdayResult::process` slices these
+        // by `continent_ranges`, so a result in the wrong slot is applied to
+        // the wrong league.
+        results.insert(index, mine);
+        results
+    }
+
+    fn play_dispatched(&self, matches: Vec<Match>) -> Vec<MatchResult> {
         let matches = match MatchDispatcherRegistry::try_get() {
             Some(dispatcher) => match dispatcher.dispatch_league(matches) {
                 Ok(results) => return results,

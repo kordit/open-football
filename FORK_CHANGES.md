@@ -101,6 +101,14 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
 
   Upstream has no such thing: a match runs to its final whistle or not at all.
 
+- `src/core/src/match/dispatch.rs` — added `MatchInterceptor` and
+  `MatchInterceptorRegistry`: one fixture claimed out of a matchday and played
+  by hand. Deliberately not a second `MatchDispatcher` — that trait is
+  all-or-nothing over a batch and its registry is a startup `OnceLock`, while
+  a live match is a session that installs and clears while the process runs
+  (hence `RwLock`, and `try_get` handing back an `Arc` rather than a guard: a
+  read lock held for ninety minutes would deadlock the session clearing it).
+
 - `src/core/src/match/engine/engine/live_tests.rs` — the commands actually
   land: a manual substitution keeps the outgoing player's stat line and
   physical snapshot (i.e. it went through `execute_substitution`, not around
@@ -187,6 +195,16 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   when international football is disabled.
 - `src/core/src/continent/result/mod.rs` — continental club competition
   draws/simulation skipped when international football is disabled.
+- `src/core/src/match/pool.rs` — `play()` consults the interceptor before the
+  dispatcher (which would otherwise ship the manager's own match to a remote
+  worker), and when a fixture is claimed, plays **the rest of the day
+  concurrently with it**. That is a departure from the plan, which ran the
+  batch first: a manager watching ninety minutes is ninety minutes of wall
+  clock the other ~450 fixtures were going to cost anyway, so a matchday now
+  costs the longer of the two rather than their sum — and the tables are live
+  while the match is on. The claimed result is re-inserted at its original
+  index, because `WorldMatchdayResult::process` slices results by
+  `continent_ranges` and a result in the wrong slot lands in the wrong league.
 - `src/core/src/match/engine/substitution/substitutions.rs` — added
   `execute_manual_substitution`, the manager's door into the *same*
   `execute_substitution` the AI passes use. Deliberately not

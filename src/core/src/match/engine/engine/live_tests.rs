@@ -15,7 +15,11 @@ use super::live::{LiveMatch, LivePhase, MatchCommand, StopPolicy};
 use super::stepper_identity_tests::{config, pin_streams, squad};
 use crate::r#match::engine::flow::result::SubstitutionReason;
 use crate::r#match::game::Match;
-use crate::r#match::{CoachInstruction, MatchState};
+use crate::r#match::pool::MatchPlayEnginePool;
+use crate::r#match::{
+    CoachInstruction, MatchInterceptor, MatchInterceptorRegistry, MatchResult, MatchState,
+};
+use std::sync::Arc;
 
 const HUMAN_TEAM: u32 = 1;
 
@@ -240,5 +244,117 @@ fn finishing_in_the_background_plays_the_whole_match() {
     assert!(
         !raw.player_stats.is_empty(),
         "the league needs stat lines out of this"
+    );
+}
+
+// ── the matchday seam ──────────────────────────────────────────────────────
+
+/// An interceptor standing in for a manager: claims one fixture, plays a bit
+/// of it by hand, then lets the assistant finish.
+struct HumanPlaysOne {
+    match_id: String,
+    team_id: u32,
+}
+
+impl MatchInterceptor for HumanPlaysOne {
+    fn claims(&self, match_id: &str) -> bool {
+        match_id == self.match_id
+    }
+
+    fn play(&self, fixture: Match) -> MatchResult {
+        let mut m = LiveMatch::start(fixture, self.team_id);
+        m.advance_to(20 * 60_000, StopPolicy::RunThrough);
+        let _ = m.apply(MatchCommand::Instruction(CoachInstruction::PushForward));
+        m.finish_headless()
+    }
+}
+
+/// Removes the interceptor whatever happens — a leaked one would silently
+/// claim a fixture in every later test in the process.
+struct Installed;
+
+impl Drop for Installed {
+    fn drop(&mut self) {
+        MatchInterceptorRegistry::clear();
+    }
+}
+
+fn fixture(id: &str, home: u32, away: u32) -> Match {
+    Match::make(
+        id.to_string(),
+        7,
+        "test-league",
+        squad(home, 15.0),
+        squad(away, 14.0),
+        false,
+    )
+}
+
+#[test]
+fn the_managers_match_comes_out_of_the_day_and_goes_back_in_its_own_slot() {
+    pin_streams(0x1A7E_0001);
+
+    let mine = "2025-10-04_3_4";
+
+    MatchInterceptorRegistry::set(Arc::new(HumanPlaysOne {
+        match_id: mine.to_string(),
+        team_id: 3,
+    }));
+    let _guard = Installed;
+
+    let day = vec![
+        fixture("2025-10-04_1_2", 1, 2),
+        fixture(mine, 3, 4),
+        fixture("2025-10-04_5_6", 5, 6),
+    ];
+
+    let results = MatchPlayEnginePool::new(2).play(day);
+
+    // Order is load-bearing: `WorldMatchdayResult::process` slices results by
+    // continent range, so a result in the wrong slot lands in the wrong league.
+    assert_eq!(
+        results.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+        vec!["2025-10-04_1_2", mine, "2025-10-04_5_6"],
+    );
+
+    // Every fixture played, the intercepted one included.
+    for r in &results {
+        assert!(
+            r.details.as_ref().is_some_and(|d| d.match_time_ms > 0),
+            "fixture {} produced no match",
+            r.id
+        );
+    }
+
+    let ours = &results[1];
+    assert_eq!(ours.home_team_id, 3);
+    assert_eq!(ours.away_team_id, 4);
+    assert!(
+        ours.details
+            .as_ref()
+            .is_some_and(|d| !d.player_stats.is_empty()),
+        "the league needs stat lines out of the manager's match too"
+    );
+}
+
+#[test]
+fn a_day_without_the_managers_fixture_is_untouched() {
+    pin_streams(0x1A7E_0002);
+
+    MatchInterceptorRegistry::set(Arc::new(HumanPlaysOne {
+        match_id: "a-fixture-that-is-not-today".to_string(),
+        team_id: 3,
+    }));
+    let _guard = Installed;
+
+    let results = MatchPlayEnginePool::new(2).play(vec![
+        fixture("2025-10-11_1_2", 1, 2),
+        fixture("2025-10-11_5_6", 5, 6),
+    ]);
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(
+        results.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+        vec!["2025-10-11_1_2", "2025-10-11_5_6"],
     );
 }
