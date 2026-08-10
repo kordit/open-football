@@ -89,8 +89,7 @@ impl MonthlyRevenue {
 /// contracts already signed — arithmetically unsurvivable. With it, the club
 /// has three seasons to shed wages down to its new level, which is precisely
 /// the window real parachute payments exist to provide.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct ParachuteEntitlement {
     /// Division the club was relegated *from*; the payment is a share of
     /// that tier's pool.

@@ -44,8 +44,7 @@ struct ManagerBondSample {
 /// Rolled-up team chemistry. Every axis is on a 0..100 scale (with
 /// `conflict_density` interpreted as "higher = worse"). `team_chemistry`
 /// is the blended headline number callers consume.
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct TeamSocialSnapshot {
     /// 0..100. Average per-pair PlayerRelation quality. 50 = neutral.
     pub avg_pair_harmony: f32,
@@ -209,8 +208,7 @@ impl CaptainMediation {
 /// graph (`>= 60` edges) and finding connected components — each
 /// component is a faction. Surfaced to the blend so a fragmented squad
 /// pays a chemistry tax, and a unified squad gets a small bonus.
-#[derive(Debug, Clone, Copy, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize, serde::Serialize)]
 pub struct SquadFactionSnapshot {
     /// Number of distinct factions (connected components of the
     /// "strong-bond" graph) in the active squad.

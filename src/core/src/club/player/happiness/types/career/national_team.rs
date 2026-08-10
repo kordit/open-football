@@ -1,5 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum NationalTeamEventKind {
     FirstCallup,
     Recall,
@@ -36,8 +35,7 @@ impl NationalTeamEventKind {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct NationalTeamEventContext {
     pub kind: NationalTeamEventKind,
     pub country_id: Option<u32>,

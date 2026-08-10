@@ -12,8 +12,7 @@ use chrono::NaiveDate;
 /// *displayed* release reason. The sweep falls back to [`Self::ContractExpired`]
 /// (no marker) or [`Self::MutualTermination`] (legacy `Frt` without an
 /// explicit reason) when no reason was recorded.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum FreeAgentReleaseReason {
     /// Natural contract expiry — nobody tore anything up, the deal simply
     /// ran out. No exit path sets this explicitly; the sweep infers it

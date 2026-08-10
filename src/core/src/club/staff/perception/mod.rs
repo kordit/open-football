@@ -26,8 +26,7 @@ pub(crate) mod state {
     pub type CoachDecisionState = super::CoachDecisionState;
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CoachDecisionState {
     pub profile: CoachProfile,
     pub impressions: HashMap<u32, PlayerImpression>,

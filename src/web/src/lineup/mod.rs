@@ -22,7 +22,7 @@ use crate::error::{ApiError, ApiResult};
 use crate::game::saves::{publish_world, write_slot};
 use axum::Json;
 use axum::extract::State;
-use core::{MatchTacticType, SimulatorData, Tactics, TacticSelectionReason, TeamType};
+use core::{MatchTacticType, SimulatorData, TacticSelectionReason, Tactics, TeamType};
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

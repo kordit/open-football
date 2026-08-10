@@ -11,8 +11,7 @@ use rayon::iter::ParallelIterator;
 use std::slice::Iter;
 use std::slice::IterMut;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamCollection {
     pub teams: Vec<Team>,
     pub coach_state: Option<CoachDecisionState>,

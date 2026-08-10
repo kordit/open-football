@@ -5,8 +5,8 @@
 
 pub mod routes;
 
-use crate::worker::{WorkerSnapshot, WorkerStatus};
 use crate::GameAppData;
+use crate::worker::{WorkerSnapshot, WorkerStatus};
 use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;

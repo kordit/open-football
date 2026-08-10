@@ -12,8 +12,7 @@ pub use europa_league::*;
 pub use super_cup::*;
 pub use types::*;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ContinentalCompetitions {
     pub champions_league: ChampionsLeague,
     pub europa_league: EuropaLeague,

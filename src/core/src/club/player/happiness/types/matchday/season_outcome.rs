@@ -1,5 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum SeasonOutcomeKind {
     Relegated,
     RelegationFear,
@@ -21,8 +20,7 @@ impl SeasonOutcomeKind {
 /// remaining when the worry crystallised, so the renderer can describe
 /// "10th in the table, 4 points clear of the drop with 6 to play"
 /// instead of a generic "Relegation fear".
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SeasonOutcomeContext {
     pub kind: SeasonOutcomeKind,
     pub league_id: Option<u32>,

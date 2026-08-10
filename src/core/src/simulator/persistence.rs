@@ -92,8 +92,8 @@ pub fn save_world(path: &Path, header: &SaveHeader, data: &SimulatorData) -> Res
     let header_bytes = bincode::serde::encode_to_vec(&header, bincode_config())
         .map_err(|e| format!("save: header encode failed: {e}"))?;
 
-    let file = File::create(path)
-        .map_err(|e| format!("save: cannot create {}: {e}", path.display()))?;
+    let file =
+        File::create(path).map_err(|e| format!("save: cannot create {}: {e}", path.display()))?;
     let mut writer = BufWriter::new(file);
 
     writer
@@ -176,8 +176,8 @@ pub fn read_header(path: &Path) -> Result<SaveHeader, String> {
 pub fn load_world(path: &Path) -> Result<(SaveHeader, SimulatorData), String> {
     let (header, reader) = read_preamble(path)?;
 
-    let mut decoder = zstd::stream::Decoder::new(reader)
-        .map_err(|e| format!("load: zstd init failed: {e}"))?;
+    let mut decoder =
+        zstd::stream::Decoder::new(reader).map_err(|e| format!("load: zstd init failed: {e}"))?;
     let mut data: SimulatorData =
         bincode::serde::decode_from_std_read(&mut decoder, bincode_config())
             .map_err(|e| format!("load: world decode failed: {e}"))?;
@@ -290,7 +290,10 @@ mod tests {
         bytes.extend_from_slice(&0u32.to_le_bytes());
         std::fs::write(&path, &bytes).unwrap();
         let err = read_header(&path).unwrap_err();
-        assert!(err.contains("unsupported save format version 999"), "got: {err}");
+        assert!(
+            err.contains("unsupported save format version 999"),
+            "got: {err}"
+        );
         let _ = std::fs::remove_file(&path);
     }
 }

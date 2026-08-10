@@ -45,15 +45,15 @@ impl DatabaseGenerator {
         // Modified from upstream: when international football is disabled
         // (single-country worlds) no national-competition configs are built
         // at all, including the bundled U21 layer.
-        let mut all_configs: Vec<NationalCompetitionConfig> = if core::settings::international_enabled()
-        {
-            data.national_competitions
-                .iter()
-                .map(|e| convert_national_competition(e))
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let mut all_configs: Vec<NationalCompetitionConfig> =
+            if core::settings::international_enabled() {
+                data.national_competitions
+                    .iter()
+                    .map(|e| convert_national_competition(e))
+                    .collect()
+            } else {
+                Vec::new()
+            };
         if core::settings::international_enabled() {
             all_configs.push(uefa_u21_championship_config());
         }

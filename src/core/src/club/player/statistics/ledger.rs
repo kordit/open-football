@@ -20,8 +20,7 @@ use crate::league::Season;
 /// can belong to. Every renderable row is labelled with exactly one
 /// kind, independent of which database object the underlying records
 /// came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum PlayerStatCompetitionKind {
     /// Senior league appearances (Serie A, Premier League, …). The
     /// History page rolls continental-cup apps into these rows.
@@ -67,8 +66,7 @@ impl PlayerStatCompetitionKind {
 /// Immutable source record for a single stat slice. Storage appends
 /// these (with merge on collision); the projection groups them into
 /// render rows.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerStatLedgerEntry {
     /// Deterministic ordering token. Preserved purely so renderers can
     /// resolve ties between rows with the same `(season, team, kind)`;

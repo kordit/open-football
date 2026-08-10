@@ -40,8 +40,7 @@ pub const AVAILABILITY_STATUSES: [PlayerStatusType; 4] = [
 /// player still here?". Ordered by `rank`: a richer, closer-to-a-deal
 /// blocker outranks a coarse early-gate one when two are recorded on the
 /// same scan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum AvailabilityBlockReason {
     /// Not enough time on the market yet to draw a conclusion — the
     /// player only just became available. A non-diagnosis sentinel.
@@ -203,8 +202,7 @@ impl MarketResignation {
 /// player. Seeded the first time the circulation pass sees the player
 /// carrying an availability status; updated each weekly scan; dropped
 /// when he is no longer available (status cleared, or he changes club).
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct AvailabilityMarketState {
     /// When the player first became available in the current sit. Anchors
     /// the staleness curve. Derived from the earliest active availability

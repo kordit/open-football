@@ -1,7 +1,6 @@
 use chrono::{NaiveDateTime, NaiveTime};
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TrainingSchedule {
     pub morning_time: NaiveTime,
     pub evening_time: NaiveTime,

@@ -13,8 +13,7 @@ use crate::ChangeType;
 
 /// Severity tier derived from applied magnitude. Renderers and tests treat
 /// these as ordinal — Minor < Moderate < Serious < Major.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventSeverity {
     Minor,
     Moderate,
@@ -53,8 +52,7 @@ impl HappinessEventSeverity {
 /// Cause category — the football-realistic reason behind the event.
 /// Renderer turns this into the "why" sentence; tests assert that emit
 /// sites pick the right category for a given `ChangeType` / situation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventCause {
     PersonalityClash,
     TrainingFriction,
@@ -132,8 +130,7 @@ impl HappinessEventCause {
 /// Where the fallout lands — a single dressing-room incident, a wider
 /// squad-mood ripple, or a public-facing media moment. Used to colour
 /// the "what it affected" line in the UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventScope {
     Personal,
     DressingRoom,
@@ -162,8 +159,7 @@ impl HappinessEventScope {
 /// Closed enum — one variant per ChangeType the events pipeline cares
 /// about; the catch-all `Other` keeps adding new ChangeType variants
 /// from being a breaking change here.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventChangeKind {
     MatchCooperation,
     TrainingBonding,
@@ -238,8 +234,7 @@ impl HappinessEventChangeKind {
 /// to the renderer (e.g. "low trust between this pair", "still a new
 /// signing"). The renderer picks at most one or two of these per event
 /// — they're inputs to the explanation, not a checklist to dump.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventEvidence {
     /// Both players had a strong existing bond before the incident.
     StrongExistingBond,
@@ -446,8 +441,7 @@ impl HappinessEventEvidence {
 /// Closed set of "what's next" hints. Renderer maps each to a localised
 /// sentence; storing the variant (rather than free text) keeps the UI
 /// stable across re-renders and translatable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HappinessEventFollowUp {
     /// Likely to settle unless repeated within the next few weeks.
     LikelyToSettle,
@@ -494,8 +488,7 @@ impl HappinessEventFollowUp {
 ///
 /// `None` evidence fields mean "the emit site didn't know" — the UI
 /// hides the corresponding sentence rather than fabricating one.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct HappinessEventContext {
     pub cause: HappinessEventCause,
     pub severity: HappinessEventSeverity,

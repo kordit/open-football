@@ -1,7 +1,6 @@
 /// Lightweight country info for nationality lookups.
 /// Covers ALL countries (not just simulation participants).
-#[derive(Clone, Debug)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct CountryInfo {
     pub id: u32,
     pub code: String,

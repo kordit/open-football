@@ -77,8 +77,7 @@ pub struct GroupStanding {
 }
 
 /// Which slice of the season feeds this playoff.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PlayoffStage {
     /// The whole regular season (MLS Cup, Serie C, …).
     FullSeason,
@@ -108,8 +107,7 @@ pub const CROSS_BRACKET: usize = usize::MAX;
 /// One knockout tie — a single game or a best-of-N series. Games are
 /// materialised as `ScheduleItem`s on the playoff's inner league; the
 /// series tracks how many each side has won so far.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayoffSeries {
     /// 1-based round within the edition (wild card = 1 for MLS).
     pub round: u8,
@@ -154,8 +152,7 @@ impl PlayoffSeries {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeaguePlayoff {
     /// The bracket is run through a `League` flagged `is_cup = true`, so it
     /// inherits match execution, result processing, stat routing and

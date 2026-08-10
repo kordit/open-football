@@ -8,8 +8,7 @@ use chrono::NaiveDate;
 /// being dumped before the club has properly evaluated them — a player must
 /// play enough games AND spend enough time before the club can decide they
 /// don't fit.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerPlan {
     /// What role the club envisioned when signing this player.
     pub role: PlayerPlanRole,
@@ -21,8 +20,7 @@ pub struct PlayerPlan {
     pub evaluation_months: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum PlayerPlanRole {
     /// Signed to be a first-team starter right away (experienced, high fee).
     ImmediateStarter,

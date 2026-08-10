@@ -4,8 +4,7 @@ use crate::club::player::contract::PlayerSquadStatus;
 /// stands at the moment the event was emitted. Tracks how serious the
 /// interest is, from a single scout sighting to a formal bid being
 /// negotiated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestStage {
     ScoutWatched,
     Shortlisted,
@@ -58,8 +57,7 @@ impl TransferInterestStage {
 /// Where the rumour came from. Drives the "how the player heard about it"
 /// line — a scout sighting reads differently from an agent leak or a
 /// confirmed approach.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestSource {
     ScoutAttendance,
     AgentLeak,
@@ -97,8 +95,7 @@ impl TransferInterestSource {
 /// The football meaning of the move from this player's perspective.
 /// Drives whether the rumour reads as a step up, a return home, an
 /// escape route, or just speculation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestKind {
     StepUp,
     LateralMove,
@@ -154,8 +151,7 @@ impl TransferInterestKind {
 /// How the player reacted privately to the rumour or approach. Tied to
 /// personality + context — the same rumour produces different reactions
 /// for an ambitious star vs a loyal squad regular.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestReaction {
     Flattered,
     Focused,
@@ -208,8 +204,7 @@ impl TransferInterestReaction {
 /// rather than as a headline. A "bigger club but harder minutes" link
 /// produces a meaningfully different reaction from a "better playing
 /// time" link.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferSportingFit {
     ClearUpgrade,
     BiggerClubButHarderMinutes,
@@ -241,8 +236,7 @@ impl TransferSportingFit {
 /// Concrete football evidence behind the player's reaction. Closed set;
 /// the renderer picks the most informative atom to surface as a
 /// supporting sentence next to the main reason.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TransferInterestEvidence {
     BiggerClub,
     BiggerLeague,
@@ -365,8 +359,7 @@ impl TransferInterestEvidence {
 /// The `interest_stage`, `interest_source`, `interest_kind`, and
 /// `player_reaction` axes are required: a transfer-interest event
 /// without any of those four would not communicate anything useful.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TransferInterestContext {
     pub interested_club_id: Option<u32>,
     pub interested_league_id: Option<u32>,

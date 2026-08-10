@@ -14,8 +14,7 @@ use std::collections::VecDeque;
 /// the oldest one off. A reader scrolling this tab is always looking at
 /// a rolling year of the division, never at a stub and never at an
 /// archive nobody asked for.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeagueNewsroom {
     /// Which masthead noun this division's paper uses. Stable for the
     /// life of the league so the title never changes under the reader.

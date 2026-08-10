@@ -4,8 +4,7 @@ use crate::r#match::MatchResult;
 use log::debug;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeagueStatistics {
     pub total_goals: u32,
     pub total_matches: u32,

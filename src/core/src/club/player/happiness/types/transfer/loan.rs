@@ -1,5 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LoanEventKind {
     LoanListingAccepted,
     LoanDevelopmentProgress,
@@ -51,8 +50,7 @@ impl LoanEventKind {
 /// matches he actually started, and the form axis is his rating against
 /// the level he was playing at. A spell too short to judge says so
 /// rather than inventing a verdict from three appearances.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LoanSpellVerdict {
     /// Played nearly every week and played well. The loan did exactly
     /// what it was sent to do.
@@ -171,8 +169,7 @@ impl LoanSpellVerdict {
 /// Why a parent club / player is pushing to recall a loan. Closed enum so
 /// the renderer copy stays bounded. The first implementation focuses on
 /// `InsufficientMinutes`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LoanConcernReason {
     InsufficientMinutes,
     WrongRole,
@@ -198,8 +195,7 @@ impl LoanConcernReason {
 /// Why a young player's loan is judged to be failing development. Several
 /// of these can be present at once — the emit site pushes every signal it
 /// observed and the renderer surfaces the strongest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LoanDevelopmentConcernReason {
     InsufficientMinutes,
     WrongRole,
@@ -228,8 +224,7 @@ impl LoanDevelopmentConcernReason {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LoanEventContext {
     pub kind: LoanEventKind,
     pub parent_club_id: Option<u32>,
@@ -261,8 +256,7 @@ pub struct LoanEventContext {
 /// What a player did while he was away. Plain counts plus the verdict
 /// they produced, so the renderer never has to re-derive the judgement
 /// from the numbers and disagree with the event that carried it.
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct LoanSpellRecord {
     pub verdict: LoanSpellVerdict,
     pub starts: u16,

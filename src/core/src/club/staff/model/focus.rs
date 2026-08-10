@@ -1,13 +1,11 @@
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CoachFocus {
     pub technical_focus: Vec<TechnicalFocusType>,
     pub mental_focus: Vec<MentalFocusType>,
     pub physical_focus: Vec<PhysicalFocusType>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum TechnicalFocusType {
     Corners,
     Crossing,
@@ -25,8 +23,7 @@ pub enum TechnicalFocusType {
     Technique,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum MentalFocusType {
     Aggression,
     Anticipation,
@@ -44,8 +41,7 @@ pub enum MentalFocusType {
     WorkRate,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum PhysicalFocusType {
     Acceleration,
     Agility,

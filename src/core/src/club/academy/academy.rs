@@ -8,8 +8,7 @@ use crate::{
 };
 use chrono::{Datelike, NaiveDate};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum AcademyDevelopmentIdentity {
     Balanced,
     TechnicalSchool,
@@ -53,8 +52,7 @@ impl AcademyPlayerPhase {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct AcademyPathwayPolicy {
     pub min_graduation_age: u8,
     /// 0..100 readiness threshold — see `pathway_readiness_score` for the
@@ -101,8 +99,7 @@ pub struct AcademyPipelineHealth {
     pub years_since_last_graduate: u16,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ClubAcademy {
     pub(super) settings: AcademySettings,
     pub(super) tuning: AcademyTuning,

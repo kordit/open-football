@@ -208,7 +208,11 @@ pub fn run_validate_db() -> i32 {
         println!("OK ({} warnings)", warnings.len());
         0
     } else {
-        println!("FAILED: {} errors, {} warnings", errors.len(), warnings.len());
+        println!(
+            "FAILED: {} errors, {} warnings",
+            errors.len(),
+            warnings.len()
+        );
         1
     }
 }
@@ -312,7 +316,9 @@ fn validate_structure(db: &CompiledDatabase, errors: &mut Vec<String>, warnings:
         }
     }
     if dropped > 0 {
-        errors.push(format!("{dropped} club(s) would be silently dropped by the loader"));
+        errors.push(format!(
+            "{dropped} club(s) would be silently dropped by the loader"
+        ));
     }
 
     for (lid, slug) in &enabled {

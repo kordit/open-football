@@ -1,8 +1,7 @@
 use crate::PlayerFieldPositionGroup;
 
 /// What flavour of career-desire mood the player is signalling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum CareerDesireKind {
     ReturnHomeAfterPoorAdaptation,
     EuropeanCompetitionAmbition,
@@ -73,8 +72,7 @@ impl CareerDesireKind {
 /// Concrete signals the desire detector latched onto. Closed enum so the
 /// renderer copy stays bounded; emit sites push the atoms that justified
 /// the mood and the renderer surfaces the most informative one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum CareerDesireEvidence {
     /// Player is at a club whose country sits on a different continent
     /// from the player's nationality.
@@ -196,8 +194,7 @@ impl CareerDesireEvidence {
 /// career-desire mood (return home / European / Libertadores). Filled
 /// in at emit time so the renderer can compose a contextual headline +
 /// reason instead of guessing from the event-type enum alone.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CareerDesireEventContext {
     pub kind: CareerDesireKind,
     /// Days at current club at emit time. 0 if unknown.

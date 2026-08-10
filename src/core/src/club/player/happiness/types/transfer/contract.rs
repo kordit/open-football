@@ -1,7 +1,6 @@
 use crate::club::player::contract::PlayerSquadStatus;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ContractEventKind {
     OfferReceived,
     TalksOpened,
@@ -47,8 +46,7 @@ impl ContractEventKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ContractEventEvidence {
     AgentPressure,
     HighLoyalty,
@@ -127,8 +125,7 @@ impl ContractEventEvidence {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ContractEventContext {
     pub kind: ContractEventKind,
     pub interested_club_id: Option<u32>,

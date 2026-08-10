@@ -118,8 +118,7 @@ pub struct SimulatorData {
 /// player leaves or enters the pool by, so a long run's diagnostics log
 /// can tell apart "saved by a pre-contract" from "signed off the open
 /// pool" from "still leaking into long-term free agency".
-#[derive(Debug, Default, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Default, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct FreeAgentFlowCounters {
     /// Signed out of the cross-country global pool (`data.free_agents`).
     pub signed_from_global_pool: u32,

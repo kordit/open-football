@@ -8,8 +8,7 @@
 
 /// The kind of squad the board wants assembled. Read by transfer
 /// governance to bias which incoming players are welcomed or blocked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum SquadProfile {
     #[default]
     Balanced,
@@ -27,8 +26,7 @@ pub enum SquadProfile {
 
 /// Where surplus money should go when the board funds infrastructure.
 /// Drives the yearly facility review's preference ordering.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum InfrastructurePriority {
     #[default]
     None,
@@ -41,8 +39,7 @@ pub enum InfrastructurePriority {
 /// How much rope the manager gets on football decisions. Combined with
 /// ownership interference to decide whether the director of football
 /// overrides the manager and how forgiving the sacking threshold is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum ManagerAutonomy {
     Low,
     #[default]
@@ -74,8 +71,7 @@ impl ManagerAutonomy {
 
 /// How often the board formally re-evaluates the manager. Quarterly /
 /// season-end boards ignore short-term wobbles between reviews.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum ReviewFrequency {
     #[default]
     Monthly,

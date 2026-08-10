@@ -1,7 +1,6 @@
 use chrono::{Datelike, NaiveDate};
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Season {
     pub display: String,
     pub start_year: u16,

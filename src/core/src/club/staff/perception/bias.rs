@@ -2,8 +2,7 @@ use chrono::NaiveDate;
 
 // ─── RecentMove ──────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum RecentMoveType {
     DemotedToReserves,
     RecalledFromReserves,
@@ -13,8 +12,7 @@ pub enum RecentMoveType {
     SwappedOut,
 }
 
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct RecentMove {
     pub move_type: RecentMoveType,
     pub week: u32,
@@ -22,8 +20,7 @@ pub struct RecentMove {
 
 // ─── PlayerBias ─────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerBias {
     pub quality_offset: f32,
     pub visibility: f32,
@@ -56,8 +53,7 @@ impl Default for PlayerBias {
 
 // ─── PlayerImpression ────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerImpression {
     pub player_id: u32,
     pub perceived_quality: f32,

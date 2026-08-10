@@ -168,14 +168,7 @@ mod tests {
 
     #[test]
     fn make_defaults_record_to_false() {
-        let m = Match::make(
-            "m1".to_string(),
-            1,
-            "league",
-            squad(10),
-            squad(20),
-            false,
-        );
+        let m = Match::make("m1".to_string(), 1, "league", squad(10), squad(20), false);
         assert!(!m.record);
         assert!(m.seed.is_none());
     }

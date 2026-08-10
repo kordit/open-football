@@ -113,7 +113,11 @@ fn slugify(input: &str) -> String {
         }
     }
     let out = out.trim_matches('-').to_string();
-    if out.is_empty() { "save".to_string() } else { out }
+    if out.is_empty() {
+        "save".to_string()
+    } else {
+        out
+    }
 }
 
 /// First free slot name: `base`, then `base-2`, `base-3`, …
@@ -252,7 +256,12 @@ pub async fn game_create_action(
             .unwrap_or_else(|| team_name.clone());
 
         // Slot slug: slugified save name, else the team's own slug.
-        let base = if request.save_name.as_deref().map(str::trim).is_some_and(|s| !s.is_empty()) {
+        let base = if request
+            .save_name
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|s| !s.is_empty())
+        {
             slugify(&save_name)
         } else {
             slugify(&team_slug)
@@ -285,7 +294,10 @@ pub async fn game_create_action(
         meta.last_autosave_date = None;
     }
 
-    info!("career created: slot '{slug}' (team {})", request_team(&entry));
+    info!(
+        "career created: slot '{slug}' (team {})",
+        request_team(&entry)
+    );
     Ok(Json(entry))
 }
 
@@ -456,8 +468,7 @@ pub fn spawn_autosave(state: &GameAppData) {
         let date = world.date;
 
         let auto_slug = format!("{slug}.auto");
-        let result =
-            spawn_blocking(move || write_slot(&saves_dir, &auto_slug, &world)).await;
+        let result = spawn_blocking(move || write_slot(&saves_dir, &auto_slug, &world)).await;
 
         match result {
             Ok(Ok(entry)) => {

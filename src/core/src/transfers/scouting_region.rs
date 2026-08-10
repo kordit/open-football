@@ -5,8 +5,7 @@
 ///
 /// This replaces the old `known_regions: Vec<u32>` (country IDs) system.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
 pub enum ScoutingRegion {
     /// England, France, Germany, Spain, Italy, Netherlands, Belgium, Portugal, Switzerland, Austria
     WesternEurope,

@@ -2132,8 +2132,7 @@ impl CountryResult {
         // resolved by the graph pass (N regional feeders per upper league,
         // region-aware relegation routing). Leagues outside the graph keep
         // the legacy positional pairing below.
-        let graph_handled =
-            Self::process_promotion_graph(country, date, &mut promoted_club_ids);
+        let graph_handled = Self::process_promotion_graph(country, date, &mut promoted_club_ids);
 
         // For each league with relegation_spots > 0, find its paired league
         for &(tier1_id, tier1_tier, relegation_spots, _) in &league_info {
@@ -2411,7 +2410,10 @@ impl CountryResult {
                 };
 
                 *incoming.entry(target).or_insert(0) += 1;
-                relegated_per_feeder.entry(target).or_default().push(*team_id);
+                relegated_per_feeder
+                    .entry(target)
+                    .or_default()
+                    .push(*team_id);
             }
 
             for (feeder_id, feeder_spots, promoted_teams) in &promoted_per_feeder {
@@ -3829,8 +3831,16 @@ mod tests {
         assert_eq!(league_of(30, &country), Some(1), "Lublin champion goes up");
 
         // Relegated clubs land in the geographically matching group.
-        assert_eq!(league_of(12, &country), Some(2), "Zamość club drops to KO Zamość");
-        assert_eq!(league_of(13, &country), Some(3), "Lublin club drops to KO Lublin");
+        assert_eq!(
+            league_of(12, &country),
+            Some(2),
+            "Zamość club drops to KO Zamość"
+        );
+        assert_eq!(
+            league_of(13, &country),
+            Some(3),
+            "Lublin club drops to KO Lublin"
+        );
 
         // Everyone else stays put.
         assert_eq!(league_of(10, &country), Some(1));

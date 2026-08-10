@@ -1,5 +1,4 @@
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct BoardMood {
     pub state: BoardMoodState,
 }
@@ -12,8 +11,7 @@ impl BoardMood {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum BoardMoodState {
     Poor,
     Normal,

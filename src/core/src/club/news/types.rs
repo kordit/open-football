@@ -82,8 +82,7 @@ pub enum NewsRecurrence {
 /// real recurring football story — the kind a local paper actually
 /// leads on — and maps to exactly one headline / body pair in the
 /// translation bundles (`news_h_<stem>` / `news_b_<stem>`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum NewsStoryKind {
     // ── Match desk ────────────────────────────────────────────────
     LeagueWin,
@@ -3180,8 +3179,7 @@ impl NewsStoryKind {
 /// world keeps five editions on hand, so a story carries identifiers
 /// and numbers only and the web layer resolves names, money formats
 /// and translated prose at render time.
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct NewsStory {
     pub kind: NewsStoryKind,
     pub date: NaiveDate,
@@ -3301,8 +3299,7 @@ impl NewsStory {
 /// Which competition a result was played in. The ruled results column
 /// marks the cup ties, because "lost 0-1" reads very differently when
 /// it is the round the club went out in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ResultCompetition {
     League,
     Cup,
@@ -3332,8 +3329,7 @@ impl ResultCompetition {
 
 /// One line in the ruled results panel — the fixtures column every
 /// football paper prints regardless of what else happened that week.
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct IssueResult {
     pub date: NaiveDate,
     pub opponent_team_id: u32,
@@ -3380,8 +3376,7 @@ impl IssueResult {
 
 /// The tone the paper takes this week. Local reporting swings hard with
 /// results, and the swing is itself part of the reading experience.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PressMood {
     Triumph,
     Upbeat,
@@ -3453,8 +3448,7 @@ impl PressMood {
 
 /// A single printed edition, frozen at publication. Later events never
 /// rewrite an issue — an old paper says what it said on the day.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct NewspaperIssue {
     /// Consecutive edition number, starting at 1 for a club's first
     /// printed paper.
@@ -3482,8 +3476,7 @@ impl NewspaperIssue {
 /// crowd, so each gets its own masthead rather than a shared club page
 /// that only ever reported the first team. Squads without a brand of
 /// their own (Reserve, U18..U23) are covered by the first team's paper.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamNewsroom {
     /// Which masthead noun this side's paper uses. Stable for the life
     /// of the team so the title never changes under the reader.

@@ -25,8 +25,7 @@ use log::debug;
 /// take the club. Drives expectations, recruitment preferences, and
 /// manager-board friction. Each item is advisory: the manager can ignore
 /// it but the board will judge them against it at season's end.
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct ClubVision {
     pub playing_style: VisionPlayingStyle,
     pub youth_focus: VisionYouthFocus,
@@ -47,8 +46,7 @@ pub struct ClubVision {
     pub review_frequency: ReviewFrequency,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum VisionPlayingStyle {
     #[default]
     Balanced,
@@ -60,8 +58,7 @@ pub enum VisionPlayingStyle {
     DirectPlay,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum VisionYouthFocus {
     #[default]
     Balanced,
@@ -71,8 +68,7 @@ pub enum VisionYouthFocus {
     SignExperienced,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum SigningPreference {
     #[default]
     Anyone,
@@ -84,8 +80,7 @@ pub enum SigningPreference {
     Marquee,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum FinancialStance {
     #[default]
     Balanced,
@@ -97,8 +92,7 @@ pub enum FinancialStance {
     Austerity,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LongTermGoal {
     WinLeague,
     WinDomesticCup,
@@ -111,8 +105,7 @@ pub enum LongTermGoal {
 /// Ownership personality — a simplified chairman archetype whose traits
 /// shape how the board actually exercises its powers. Two knobs, each
 /// with meaningful consequences downstream of board.simulate().
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum ChairmanAmbition {
     #[default]
     Balanced,
@@ -125,8 +118,7 @@ pub enum ChairmanAmbition {
     Conservative,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum ChairmanPatience {
     #[default]
     Medium,
@@ -136,8 +128,7 @@ pub enum ChairmanPatience {
     High,
 }
 
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct ChairmanProfile {
     pub ambition: ChairmanAmbition,
     pub patience: ChairmanPatience,
@@ -315,8 +306,7 @@ pub struct BoardDossierSummary {
     pub matches_watched: u16,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SeasonTargets {
     pub transfer_budget: i32,
     pub wage_budget: i32,
@@ -331,8 +321,7 @@ pub struct SeasonTargets {
 /// Board confidence in the current management (0-100).
 /// Drops when results are poor, recovers when exceeding expectations.
 /// At 0 — or after sustained Poor mood — the manager is sacked.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct BoardConfidence {
     pub level: i32,
 }
@@ -343,8 +332,7 @@ impl Default for BoardConfidence {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ClubBoard {
     pub mood: BoardMood,
     pub confidence: BoardConfidence,

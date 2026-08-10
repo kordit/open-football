@@ -1,14 +1,12 @@
 use crate::utils::FormattingUtils;
 use chrono::NaiveDate;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerDecisionHistory {
     pub items: Vec<PlayerDecision>,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PlayerDecision {
     pub date: NaiveDate,
     pub movement: String,

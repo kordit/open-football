@@ -2,8 +2,7 @@ use chrono::NaiveDate;
 use std::collections::VecDeque;
 
 /// Enhanced TeamReputation with dynamic updates and history tracking
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamReputation {
     /// Local/regional reputation (0-10000)
     pub home: u16,
@@ -380,8 +379,7 @@ impl TeamReputation {
 }
 
 /// A club's slow-moving structural standing — what it reverts toward.
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 struct ReputationBaseline {
     home: u16,
     national: u16,
@@ -393,8 +391,7 @@ struct ReputationBaseline {
 /// Without this, every change smaller than one unit was silently discarded
 /// by the cast to an integer, so gains had a hard floor at zero while decay
 /// — being multiplicative — had none.
-#[derive(Debug, Clone, Copy, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize, serde::Serialize)]
 struct ReputationResidue {
     home: f32,
     national: f32,
@@ -422,8 +419,7 @@ impl ReputationResidue {
 }
 
 /// Reputation momentum tracking
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 struct ReputationMomentum {
     current: f32,
     history: VecDeque<f32>,
@@ -468,8 +464,7 @@ impl ReputationMomentum {
 }
 
 /// Historical reputation tracking
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 struct ReputationHistory {
     snapshots: VecDeque<(NaiveDate, ReputationSnapshot)>,
     max_snapshots: usize,
@@ -525,8 +520,7 @@ impl ReputationHistory {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 struct ReputationSnapshot {
     home: u16,
     national: u16,
@@ -536,8 +530,7 @@ struct ReputationSnapshot {
 
 /// Factors affecting reputation
 #[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 struct ReputationFactors {
     achievements: Vec<Achievement>,
     star_players_signed: u8,
@@ -563,8 +556,9 @@ impl ReputationFactors {
 /// Reputation level categories. Declared low → high so the derived `Ord`
 /// ranks `Amateur < Local < … < Elite` — callers compare tiers directly
 /// (e.g. a borrower below a loanee's parent tier).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize, serde::Serialize,
+)]
 pub enum ReputationLevel {
     Amateur,
     Local,
@@ -655,8 +649,7 @@ pub enum ReputationTrend {
 }
 
 /// Achievement that affects reputation
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Achievement {
     achievement_type: AchievementType,
     date: NaiveDate,
@@ -699,8 +692,7 @@ impl Achievement {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum AchievementType {
     LeagueTitle,
     CupWin,

@@ -221,8 +221,8 @@ impl DatabaseGenerator {
                 relegation_spots: 0,
                 league_group: None,
                 split_season: false,
-            promotes_to: None,
-            region_code: None,
+                promotes_to: None,
+                region_code: None,
             };
             let reputation = primary.reputation;
 
@@ -449,8 +449,8 @@ mod tests {
                 relegation_spots: 3,
                 league_group: None,
                 split_season: false,
-            promotes_to: None,
-            region_code: None,
+                promotes_to: None,
+                region_code: None,
             },
             false,
         )

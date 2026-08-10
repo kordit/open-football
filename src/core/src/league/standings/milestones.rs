@@ -2,8 +2,7 @@ use crate::league::{LeagueStatistics, LeagueTable};
 use chrono::{Datelike, NaiveDate};
 use log::debug;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeagueMilestones {
     pub all_time_records: AllTimeRecords,
     pub season_milestones: Vec<Milestone>,
@@ -115,8 +114,7 @@ impl LeagueMilestones {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct AllTimeRecords {
     pub most_points_in_season: (u32, u8),
     pub most_goals_in_season: (u32, i32),
@@ -126,8 +124,7 @@ pub struct AllTimeRecords {
     pub longest_unbeaten_streak: (u32, u8),
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Milestone {
     pub milestone_type: MilestoneType,
     pub team_id: u32,
@@ -135,8 +132,7 @@ pub struct Milestone {
     pub matches_played: u8,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum MilestoneType {
     TitleWon,
     RelegationConfirmed,

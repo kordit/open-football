@@ -8,8 +8,7 @@ use crate::continent::national::{
 
 /// Manages global-scope competitions (e.g. World Cup) at the SimulatorData level.
 /// Qualifying runs per-continent; the tournament is assembled here from all zones.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct GlobalCompetitions {
     pub configs: Vec<NationalCompetitionConfig>,
     pub tournaments: Vec<NationalTeamCompetition>,

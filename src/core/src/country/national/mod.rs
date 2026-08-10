@@ -36,8 +36,7 @@ use chrono::NaiveDate;
 use log::debug;
 use std::collections::HashSet;
 
-#[derive(Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct NationalTeam {
     pub country_id: u32,
     pub country_name: String,

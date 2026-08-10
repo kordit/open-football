@@ -36,8 +36,7 @@ mod partnerships;
 mod relationships;
 mod training_direction;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamBehaviour {
     last_full_update: Option<NaiveDateTime>,
     last_minor_update: Option<NaiveDateTime>,

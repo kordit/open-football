@@ -149,8 +149,7 @@ pub struct SettlementRatingAdjustment {
 /// transient state (rather than having execution push events directly)
 /// means the player reacts to a new environment as part of his own
 /// processing, alongside happiness, language, integration, etc.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PendingSigning {
     pub previous_salary: Option<u32>,
     pub fee: f64,

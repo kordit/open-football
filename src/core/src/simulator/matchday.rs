@@ -169,9 +169,7 @@ impl<'gc> WorldMatchdayResult<'gc> {
                 let date_mix = world.date.and_utc().timestamp() as u64;
                 for m in &mut global_matches {
                     let id_mix = fnv1a(m.id().as_bytes());
-                    m.seed = Some(splitmix64(
-                        world_seed ^ id_mix.rotate_left(17) ^ date_mix,
-                    ));
+                    m.seed = Some(splitmix64(world_seed ^ id_mix.rotate_left(17) ^ date_mix));
                 }
             }
             // Added in this fork: per-match replay recording for the
@@ -180,11 +178,7 @@ impl<'gc> WorldMatchdayResult<'gc> {
             // `--match-recording-enabled` flag is off, so career-mode
             // replays exist without recording the whole world.
             for m in &mut global_matches {
-                if should_record(
-                    m.home_squad.team_id,
-                    m.away_squad.team_id,
-                    managed_team_id,
-                ) {
+                if should_record(m.home_squad.team_id, m.away_squad.team_id, managed_team_id) {
                     m.record = true;
                 }
             }

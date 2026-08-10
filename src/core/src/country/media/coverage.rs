@@ -3,8 +3,7 @@ use crate::league::LeagueResult;
 use crate::utils::IntegerUtils;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MediaCoverage {
     pub intensity: f32,
     pub trending_stories: Vec<MediaStory>,
@@ -51,16 +50,14 @@ impl MediaCoverage {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MediaStory {
     pub club_id: u32,
     pub story_type: StoryType,
     pub intensity: f32,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum StoryType {
     TransferRumor,
     ManagerPressure,

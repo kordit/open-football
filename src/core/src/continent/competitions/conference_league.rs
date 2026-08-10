@@ -12,8 +12,7 @@ use std::collections::HashMap;
 
 pub const CONFERENCE_LEAGUE_SLUG: &str = "conference-league";
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ConferenceLeague {
     pub participating_clubs: Vec<u32>,
     pub current_stage: CompetitionStage,

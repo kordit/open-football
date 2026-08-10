@@ -6,8 +6,7 @@ use std::cmp::Ordering;
 
 const DEFAULT_MATCH_LIST_SIZE: usize = 10;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MatchHistory {
     items: Vec<MatchHistoryItem>,
 }
@@ -67,8 +66,7 @@ impl MatchHistory {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MatchHistoryItem {
     pub date: NaiveDateTime,
     pub rival_team_id: u32,

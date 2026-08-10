@@ -76,8 +76,7 @@ impl SeasonPhase {
 
 /// The four component scores from one board review. Roughly `[-40, 40]`
 /// each; positive = pleasing the board.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct BoardComponentScores {
     pub sporting: f32,
     pub financial: f32,

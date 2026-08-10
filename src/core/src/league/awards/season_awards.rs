@@ -30,8 +30,7 @@ pub const YEAR_MAX_RETAINED: usize = 20;
 
 /// One spot in a team-of-the-week selection. Position group is preserved
 /// so the UI can render the XI in a 1-4-4-2 layout without re-classifying.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamOfTheWeekSlot {
     pub player_id: u32,
     pub player_name: String,
@@ -47,8 +46,7 @@ pub struct TeamOfTheWeekSlot {
     pub average_rating: f32,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamOfTheWeekAward {
     pub week_end_date: NaiveDate,
     pub slots: Vec<TeamOfTheWeekSlot>,
@@ -59,16 +57,14 @@ pub struct TeamOfTheWeekAward {
 /// that span calendar boundaries differently. Slots are denormalised
 /// (same shape as Team of the Week) so the UI can render players who
 /// later transferred or retired without a live lookup.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct TeamOfTheYearAward {
     pub year: i32,
     pub year_end_date: NaiveDate,
     pub slots: Vec<TeamOfTheWeekSlot>,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MonthlyPlayerAward {
     pub month_end_date: NaiveDate,
     pub player_id: u32,
@@ -89,8 +85,7 @@ pub struct MonthlyPlayerAward {
 /// used by the other monthly awards so the web layer never has to
 /// re-resolve a player out of the live roster (works even after
 /// transfers / retirements).
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MonthlyStatLeader {
     pub player_id: u32,
     pub player_name: String,
@@ -115,8 +110,7 @@ pub struct MonthlyStatLeader {
 /// Months with zero relevant matches are intentionally NOT recorded,
 /// so `monthly_awards.last()` always returns the most recent month
 /// that actually had fixtures.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MonthlyAwardsSnapshot {
     pub month_start_date: NaiveDate,
     pub month_end_date: NaiveDate,
@@ -130,8 +124,7 @@ pub struct MonthlyAwardsSnapshot {
     pub best_ratings: Vec<MonthlyStatLeader>,
 }
 
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct SeasonAwardsSnapshot {
     pub season_end_date: NaiveDate,
     pub player_of_season: Option<u32>,
@@ -149,8 +142,7 @@ pub struct SeasonAwardsSnapshot {
 }
 
 /// Bounded archive of league award history beyond the weekly POW.
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct LeagueAwards {
     pub team_of_week: Vec<TeamOfTheWeekAward>,
     /// Young Team of the Week archive (age ≤ 20). Mirrors `team_of_week`

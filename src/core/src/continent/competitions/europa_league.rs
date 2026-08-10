@@ -12,8 +12,7 @@ use std::collections::HashMap;
 
 pub const EUROPA_LEAGUE_SLUG: &str = "europa-league";
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct EuropaLeague {
     pub participating_clubs: Vec<u32>,
     pub current_stage: CompetitionStage,

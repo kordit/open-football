@@ -21,8 +21,7 @@ use std::ops::Range;
 pub const CONTINENT_EUROPE_ID: u32 = 1;
 pub const CONTINENT_SOUTH_AMERICA_ID: u32 = 3;
 
-#[derive(Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct Continent {
     pub id: u32,
     pub name: String,

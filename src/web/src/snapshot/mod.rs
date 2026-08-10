@@ -566,10 +566,7 @@ fn collect_fixtures(league: &League, since: Option<NaiveDate>, matches: &mut Vec
             }
 
             let (home_goals, away_goals) = match &item.result {
-                Some(score) => (
-                    Some(score.home_team.get()),
-                    Some(score.away_team.get()),
-                ),
+                Some(score) => (Some(score.home_team.get()), Some(score.away_team.get())),
                 None => (None, None),
             };
 

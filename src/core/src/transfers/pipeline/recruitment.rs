@@ -31,8 +31,7 @@ use crate::transfers::pipeline::ReportRiskFlag;
 /// Where a monitoring record sits in the recruitment lifecycle.
 /// Distinct from the candidate-on-shortlist `ShortlistCandidateStatus`
 /// because monitoring tracks scout interest, not pursuit progress.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ScoutMonitoringStatus {
     /// Scout is actively observing — confidence still building.
     Active,
@@ -55,8 +54,7 @@ pub enum ScoutMonitoringStatus {
 }
 
 /// What surfaced this player to the scouting department.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ScoutMonitoringSource {
     /// Player observed in service of an explicit `TransferRequest`.
     TransferRequest,
@@ -90,8 +88,7 @@ pub enum ScoutMonitoringSource {
 /// because the recruitment department, not the individual scout, owns
 /// the shared dossier. A scout leaving the club doesn't erase what
 /// they saw — successor scouts can pick the file back up.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ScoutPlayerMonitoring {
     pub id: u32,
     pub scout_staff_id: u32,
@@ -224,8 +221,7 @@ impl ScoutPlayerMonitoring {
 // Scout votes
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ScoutVoteChoice {
     StrongApprove,
     Approve,
@@ -234,8 +230,7 @@ pub enum ScoutVoteChoice {
     NeedsMoreInfo,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum ScoutVoteReason {
     /// Player is ready to slot in immediately.
     ReadyNow,
@@ -261,8 +256,7 @@ pub enum ScoutVoteReason {
     BoardRisk,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ScoutVote {
     pub scout_staff_id: u32,
     pub player_id: u32,
@@ -376,8 +370,7 @@ impl RecruitmentDecisionType {
 // Recruitment meeting & decisions
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum RecruitmentDecisionType {
     PromoteToShortlist,
     KeepMonitoring,
@@ -389,8 +382,7 @@ pub enum RecruitmentDecisionType {
     StartNegotiation,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct RecruitmentDecision {
     pub player_id: u32,
     pub transfer_request_id: Option<u32>,
@@ -450,8 +442,7 @@ impl<'de> serde::Deserialize<'de> for RecruitmentDecision {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct RecruitmentMeeting {
     pub id: u32,
     pub date: NaiveDate,

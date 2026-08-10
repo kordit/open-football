@@ -24,8 +24,7 @@ pub const RAPPORT_MIN: i16 = -50;
 /// Max rapport clamp (coach has the player's total trust).
 pub const RAPPORT_MAX: i16 = 100;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CoachRapport {
     pub coach_id: u32,
     /// Rapport score, -50 to +100. 0 = neutral new relationship.
@@ -37,8 +36,7 @@ pub struct CoachRapport {
     pub shared_days: u32,
 }
 
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct PlayerRapport {
     pub coaches: Vec<CoachRapport>,
 }

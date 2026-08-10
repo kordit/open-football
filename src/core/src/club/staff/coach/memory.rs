@@ -71,8 +71,7 @@ const INACTIVE_DECAY_PER_STEP: f32 = 0.25;
 /// Structured flags the coach attaches to a player. Not free text — every
 /// variant is a small, bounded signal a downstream decision can read by
 /// name. Encoded as a u32 bit-set so the memory record stays compact.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct CoachMemoryFlags(u32);
 
 impl CoachMemoryFlags {
@@ -112,8 +111,7 @@ impl CoachMemoryFlags {
 /// inactivity window softens streaks and pulls EMAs back toward the
 /// long-form baseline, so a player who hasn't played for the coach in
 /// months isn't carrying a stale streak forward forever.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CoachMemory {
     pub player_id: u32,
     pub matches_observed: u16,
@@ -238,8 +236,7 @@ impl Default for CoachMemory {
 /// Per-coach map of player memories. Lives on [`Staff`] and is
 /// updated at the league/match dispatch layer where the head coach
 /// for the side is known.
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct CoachMemoryStore {
     records: HashMap<u32, CoachMemory>,
 }

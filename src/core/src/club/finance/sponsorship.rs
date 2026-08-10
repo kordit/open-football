@@ -2,8 +2,7 @@ use crate::ReputationLevel;
 use crate::utils::FloatUtils;
 use chrono::{Datelike, Duration, NaiveDate};
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ClubSponsorship {
     pub sponsorship_contracts: Vec<ClubSponsorshipContract>,
 }
@@ -202,8 +201,7 @@ fn generate_sponsor_name(reputation: ReputationLevel) -> String {
     pool.get(idx).copied().unwrap_or("Sponsor").to_string()
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ClubSponsorshipContract {
     pub sponsor_name: String,
     pub wage: i32,

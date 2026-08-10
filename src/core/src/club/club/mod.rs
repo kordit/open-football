@@ -21,8 +21,7 @@ use crate::utils::DateUtils;
 use crate::{ReputationLevel, TeamCollection, TeamType};
 use chrono::{Duration, NaiveDate};
 
-#[derive(Debug, Clone, PartialEq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum ClubPhilosophy {
     /// Develop youth and sell for profit (Ajax, Benfica, Dortmund)
     DevelopAndSell,
@@ -34,8 +33,7 @@ pub enum ClubPhilosophy {
     Balanced,
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ClubColors {
     pub background: String,
     pub foreground: String,
@@ -50,8 +48,7 @@ impl Default for ClubColors {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Club {
     pub id: u32,
     pub name: String,

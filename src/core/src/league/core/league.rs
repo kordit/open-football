@@ -11,8 +11,7 @@ use chrono::Duration;
 use chrono::{Datelike, NaiveDate};
 use log::debug;
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct League {
     pub id: u32,
     pub name: String,
@@ -44,8 +43,7 @@ pub struct League {
     pub newsroom: LeagueNewsroom,
 }
 
-#[derive(Debug, Clone, Default)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct LeagueFinancials {
     pub prize_pool: i64,
     pub tv_deal_total: i64,
@@ -411,8 +409,7 @@ impl League {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct DayMonthPeriod {
     pub from_day: u8,
     pub from_month: u8,
@@ -431,8 +428,7 @@ impl DayMonthPeriod {
     }
 }
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeagueSettings {
     pub season_starting_half: DayMonthPeriod,
     pub season_ending_half: DayMonthPeriod,
@@ -455,8 +451,7 @@ pub struct LeagueSettings {
 }
 
 /// Identifies a league as one group within a larger competition.
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeagueGroup {
     pub name: String,
     pub competition: String,
@@ -471,8 +466,7 @@ pub struct LeagueGroup {
 
 /// Configuration for a grouped competition's end-of-season playoff. See
 /// [`crate::league::LeaguePlayoff`].
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct LeaguePlayoffConfig {
     /// Top N of each group's table that enter the knockout bracket.
     pub qualifiers_per_group: u8,
@@ -488,8 +482,7 @@ pub struct LeaguePlayoffConfig {
 }
 
 /// Bracket shape for a grouped competition's playoff.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PlayoffFormat {
     /// Generic single-elimination: group seeds interleaved into one field,
     /// re-paired strongest-vs-weakest each round, byes to top seeds.
