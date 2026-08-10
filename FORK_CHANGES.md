@@ -225,6 +225,25 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   when international football is disabled.
 - `src/core/src/continent/result/mod.rs` — continental club competition
   draws/simulation skipped when international football is disabled.
+- `src/database/src/generators/generator/mod.rs` — the world opens on the day
+  its data says, not on the day the machine's clock is in. Upstream started
+  every world on 1 August of the current real year; for a world exported from
+  an imported season that is simply wrong — a 2025/26 database opened in 2026
+  started in August 2026 with the season it was built from already played out.
+  The exporter now stamps 1 July of the season's first year into the database
+  (`start_date`), and this reads it, falling back to upstream's behaviour when
+  the field is absent.
+- `src/database/src/loaders/compiled.rs`, `src/database/src/loaders/mod.rs`,
+  `src/database/src/lib.rs` — the `start_date` field, its lenient parse (a
+  malformed value is treated as absent, because the fallback is a working
+  world on the wrong day rather than no world at all), and its re-export.
+- `src/web/src/game/process.rs` — `POST /api/game/process` answers with JSON.
+  It used to return a bare `200` with no body at all, while every other route
+  here is JSON and the service descriptor says so — so the panel's client
+  refused it and the manager was told "silnik zwrocil odpowiedz, ktora nie
+  jest JSON-em" for a day that had in fact been simulated correctly. The busy
+  branch now says `{"processed": false, "reason": "busy"}` rather than
+  pretending the request did something.
 - `src/web/src/lib.rs`, `src/main.rs` — `GameAppData` gained `live:
   LiveRegistry`, the one live session a process can hold (one, because the
   engine holds one world per process).

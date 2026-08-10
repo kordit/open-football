@@ -38,6 +38,16 @@ pub const DEFAULT_DATABASE_FILE: &str = "polish-database.db";
 #[derive(Deserialize)]
 pub struct CompiledDatabase {
     pub version: String,
+    /// Added in this fork: the day the world starts, in `YYYY-MM-DD`.
+    ///
+    /// Upstream begins every world on 1 August of whatever year the machine's
+    /// clock says, which is fine for a game shipped with a contemporary
+    /// database and wrong for one built from an imported season: a world
+    /// exported from 2025/26 would open in August 2026 with the season already
+    /// gone. The date belongs to the data, so it travels with it.
+    /// Absent in databases exported before this field existed.
+    #[serde(default)]
+    pub start_date: Option<String>,
     pub continents: Vec<ContinentEntity>,
     pub countries: Vec<CountryEntity>,
     pub national_competitions: Vec<NationalCompetitionEntity>,
@@ -142,4 +152,16 @@ pub fn country_id_for_code(code: &str) -> u32 {
         .find(|c| c.code == code)
         .map(|c| c.id)
         .unwrap_or(0)
+}
+
+/// The day this world starts, if the database carries one.
+///
+/// Parsed leniently: a malformed value is treated as absent rather than
+/// bringing the world down, because the fallback (upstream's behaviour) is
+/// a working world, just one that opens on the wrong day.
+pub fn start_date() -> Option<chrono::NaiveDate> {
+    compiled()
+        .start_date
+        .as_deref()
+        .and_then(|raw| chrono::NaiveDate::parse_from_str(raw, "%Y-%m-%d").ok())
 }

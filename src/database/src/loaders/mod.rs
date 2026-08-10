@@ -12,7 +12,7 @@ pub mod players;
 pub use club::*;
 pub use compiled::{
     CompiledDatabase, DATABASE_PATH_ENV, DEFAULT_DATABASE_FILE, database_path, load_from_path,
-    set_database_path,
+    set_database_path, start_date as database_start_date,
 };
 pub use continent::*;
 pub use country::*;

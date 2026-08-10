@@ -33,10 +33,19 @@ impl DatabaseGenerator {
             seed_core_player_id_sequence(max_odb_id);
         }
 
-        let current_date = NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(Local::now().year(), 8, 1).unwrap(),
-            NaiveTime::default(),
-        );
+        // Modified from upstream: the world opens on the day its data says,
+        // not on the day the machine's clock happens to be in.
+        //
+        // Upstream starts every world on 1 August of the current real year.
+        // For a world exported from an imported season that is simply wrong —
+        // a 2025/26 database opened in 2026 starts in August 2026, with the
+        // season it was built from already played out. The exporter stamps
+        // 1 July of the season's first year, so a new career has the whole
+        // season in front of it.
+        let start_day = data
+            .start_date
+            .unwrap_or_else(|| NaiveDate::from_ymd_opt(Local::now().year(), 8, 1).unwrap());
+        let current_date = NaiveDateTime::new(start_day, NaiveTime::default());
 
         // Convert all national competition entities to runtime configs.
         // The compiled database predates the `team_level` field, so the

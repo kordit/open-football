@@ -11,6 +11,7 @@ use core::SimulationResult;
 use core::SimulatorData;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -23,16 +24,29 @@ pub struct ProcessQuery {
     pub days: Option<u32>,
 }
 
+/// Modified from upstream: answers with JSON.
+///
+/// This endpoint used to return a bare `200` with no body at all. Every other
+/// route here is JSON and the service descriptor says so, so the panel's HTTP
+/// client reasonably refuses a body it cannot parse — and the manager got
+/// "silnik zwrocil odpowiedz, ktora nie jest JSON-em" for a day that had in
+/// fact been simulated correctly.
 pub async fn game_process_action(
     State(state): State<GameAppData>,
     Query(query): Query<ProcessQuery>,
 ) -> impl IntoResponse {
     let days = query.days.unwrap_or(1);
 
-    // If already processing, return immediately
+    // If already processing, say so rather than pretending the request did
+    // something. The caller polls /api/game/processing either way.
     let process_guard = match Arc::clone(&state.process_lock).try_lock_owned() {
         Ok(guard) => guard,
-        Err(_) => return StatusCode::OK,
+        Err(_) => {
+            return (
+                StatusCode::OK,
+                Json(json!({ "processed": false, "reason": "busy" })),
+            );
+        }
     };
 
     // Reset cancel flag at start
@@ -65,7 +79,10 @@ pub async fn game_process_action(
 
     if let Err(err) = join_result {
         error!("game process task failed: {err}");
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "processed": false, "error": err.to_string() })),
+        );
     }
 
     // Added in this fork: rotating autosave of the just-published world
@@ -73,7 +90,10 @@ pub async fn game_process_action(
     // the HTTP response is not delayed by serialization.
     crate::game::saves::spawn_autosave(&state);
 
-    StatusCode::OK
+    (
+        StatusCode::OK,
+        Json(json!({ "processed": true, "days": days })),
+    )
 }
 
 /// One processing run behind `POST /api/game/process`: simulates an owned

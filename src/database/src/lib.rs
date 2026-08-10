@@ -26,6 +26,10 @@ struct EntityIndex {
 }
 
 pub struct DatabaseEntity {
+    /// Added in this fork: the day this world starts. `None` falls back to
+    /// upstream's "1 August of the current real year" — see
+    /// `loaders::compiled::CompiledDatabase::start_date`.
+    pub start_date: Option<chrono::NaiveDate>,
     pub continents: Vec<ContinentEntity>,
     pub countries: Vec<CountryEntity>,
     pub leagues: Vec<LeagueEntity>,
@@ -100,6 +104,7 @@ impl DatabaseLoader {
         let players_odb = PlayersOdb::load();
 
         DatabaseEntity {
+            start_date: loaders::database_start_date(),
             continents,
             countries,
             leagues: tree.leagues,
