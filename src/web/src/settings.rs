@@ -1,5 +1,6 @@
-// Modified from upstream: added `--database=` / `--no-international` flags
-// and the `serve` / `simulate` / `validate-db` subcommands.
+// Modified from upstream: added `--database=`, `--no-international` and
+// `--no-synthetic-players` flags, and the `serve` / `simulate` /
+// `validate-db` subcommands.
 use core::MatchRuntime;
 use log::info;
 use std::env;
@@ -22,6 +23,10 @@ pub struct Settings {
     /// `--no-international`: disable national teams, continental club
     /// competitions and the bundled U21 layer (single-country worlds).
     pub no_international: bool,
+    /// `--no-synthetic-players`: the engine never invents a footballer.
+    /// Clubs get exactly the players the world database supplies, youth
+    /// squads are not generated, and academy intake produces nobody.
+    pub no_synthetic_players: bool,
     pub match_events: bool,
     pub match_recordings: bool,
     pub match_threads: usize,
@@ -57,6 +62,8 @@ impl Settings {
             .map(str::to_string);
 
         let no_international = args.iter().any(|arg| arg == "--no-international");
+
+        let no_synthetic_players = args.iter().any(|arg| arg == "--no-synthetic-players");
 
         let match_events = args.iter().any(|arg| arg == "--match-events");
 
@@ -99,6 +106,7 @@ impl Settings {
             run_mode,
             database_path,
             no_international,
+            no_synthetic_players,
             match_events,
             match_recordings,
             match_threads,
@@ -113,6 +121,7 @@ impl Settings {
             database::set_database_path(path.clone());
         }
         core::settings::set_international_enabled(!self.no_international);
+        core::settings::set_synthetic_players_enabled(!self.no_synthetic_players);
         MatchRuntime::set_events_mode(self.match_events);
         MatchRuntime::set_recordings_mode(self.match_recordings);
         MatchRuntime::init_engine_pool(self.match_threads);
@@ -125,6 +134,13 @@ impl Settings {
         }
         if self.no_international {
             info!("International football disabled (--no-international)");
+        }
+        if self.no_synthetic_players {
+            info!(
+                "Synthetic players disabled (--no-synthetic-players) — no generated squads, \
+                 no youth teams, no academy intake; thin clubs stay thin and retirements \
+                 are not replaced"
+            );
         }
         if self.match_events {
             info!("Match events recording enabled");

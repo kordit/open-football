@@ -1,31 +1,10 @@
+//! Modified from upstream: every rendered player tab has been removed.
+//! What remains is the set of manager actions the panel calls.
 pub mod actions;
-pub mod awards;
-pub mod contract;
-pub mod events;
-pub mod get;
-pub mod history;
-pub mod matches;
-pub mod newspaper;
-pub mod personal;
-pub mod relations;
-pub mod transfers;
-
-pub use get::PlayerStatusDto;
 
 use crate::GameAppData;
 use axum::Router;
 
 pub fn player_routes() -> Router<GameAppData> {
-    Router::new()
-        .merge(get::routes::routes())
-        .merge(contract::routes::routes())
-        .merge(personal::routes::routes())
-        .merge(events::routes::routes())
-        .merge(awards::routes::routes())
-        .merge(matches::routes::routes())
-        .merge(transfers::routes::routes())
-        .merge(relations::routes::routes())
-        .merge(history::routes::routes())
-        .merge(newspaper::routes::routes())
-        .merge(actions::routes::routes())
+    Router::new().merge(actions::routes::routes())
 }

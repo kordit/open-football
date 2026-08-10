@@ -1,37 +1,31 @@
-mod about;
-mod ai;
-mod champions_league;
+//! HTTP surface of the engine.
+//!
+//! In this fork the engine serves no user interface at all — the game's
+//! front end is the Blade panel in the parent repository, which reads a
+//! projection of the world from `/api/world/snapshot` and drives the
+//! world through `/api/game/*`. Everything that used to render a page
+//! (including upstream's Champions League / Europa League / Copa
+//! Libertadores / national-competition sections, which this game has no
+//! use for) has been removed; see FORK_CHANGES.md.
+
 mod common;
-mod conference_league;
-mod copa_libertadores;
-mod countries;
-mod cups;
 mod date;
 mod error;
-mod europa_league;
-mod face;
 mod game;
 pub mod i18n;
-mod leagues;
-// Added in this fork: interactive club-selection map of Poland.
-mod map;
+// Added in this fork: manager-set starting XI.
+mod lineup;
 mod r#match;
-mod national_competitions;
 mod player;
-mod playoffs;
 mod routes;
-mod search;
 pub mod settings;
-mod staff;
-mod teams;
-mod views;
-mod watchlist;
+// Added in this fork: world snapshot consumed by the Laravel panel.
+mod snapshot;
 pub mod worker;
 mod workers;
 
 pub use settings::{RunMode, Settings};
 
-pub use ai::{AiConfig, AiJobs, LlmSettings};
 pub use error::{ApiError, ApiResult};
 // Added in this fork: save-slot session bookkeeping.
 pub use game::saves::SaveMeta;
@@ -87,7 +81,7 @@ impl FootballSimulatorServer {
             }
         };
 
-        info!("listen at: http://localhost:18000");
+        info!("engine API on http://localhost:18000 (JSON only — no UI)");
 
         if let Err(e) = axum::serve(listener, app).await {
             error!("Server error: {}", e);
@@ -111,12 +105,6 @@ pub struct GameAppData {
     /// Live registry of distributed match workers. Always present;
     /// starts empty and is populated at runtime from the /workers page.
     pub workers: WorkerRegistry,
-    /// In-memory OpenAI-compatible LLM contract, set from the home-page
-    /// "AI" badge dialog. Unset until the operator saves settings.
-    pub ai: AiConfig,
-    /// In-flight AI agent runs, polled by the per-page report dialogs so
-    /// tool calls stream in live.
-    pub ai_jobs: AiJobs,
     /// Added in this fork: save-slot session state — active slot slug,
     /// saves directory, last autosave date.
     pub saves: Arc<RwLock<SaveMeta>>,
@@ -133,8 +121,6 @@ impl Clone for GameAppData {
             news_i18n: Arc::clone(&self.news_i18n),
             events_i18n: Arc::clone(&self.events_i18n),
             workers: self.workers.clone(),
-            ai: self.ai.clone(),
-            ai_jobs: self.ai_jobs.clone(),
             saves: Arc::clone(&self.saves),
         }
     }

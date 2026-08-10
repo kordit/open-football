@@ -28,8 +28,8 @@ use simulator_core::utils::TimeEstimation;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use web::{
-    AiConfig, AiJobs, DistributedDispatcher, EventI18nManager, FootballSimulatorServer,
-    GameAppData, I18nManager, NewsI18nManager, RunMode, Settings, WorkerRegistry, WorkerServer,
+    DistributedDispatcher, EventI18nManager, FootballSimulatorServer, GameAppData, I18nManager,
+    NewsI18nManager, RunMode, Settings, WorkerRegistry, WorkerServer,
 };
 
 #[tokio::main]
@@ -103,31 +103,12 @@ async fn main() {
         news_i18n,
         events_i18n,
         workers,
-        ai: AiConfig::new(),
-        ai_jobs: AiJobs::new(),
         // Added in this fork: no active save slot at startup.
         saves: Arc::new(RwLock::new(web::SaveMeta::new())),
     };
 
-    // Open browser
-    #[cfg(target_os = "windows")]
-    {
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", "http://localhost:18000"])
-            .spawn();
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = std::process::Command::new("open")
-            .arg("http://localhost:18000")
-            .spawn();
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let _ = std::process::Command::new("xdg-open")
-            .arg("http://localhost:18000")
-            .spawn();
-    }
-
+    // Modified from upstream: no browser is opened. This process serves
+    // JSON only — the game's front end is the Blade panel in the parent
+    // repository, which talks to it over HTTP.
     FootballSimulatorServer::new(data).run().await;
 }

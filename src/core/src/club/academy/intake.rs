@@ -22,6 +22,14 @@ impl ClubAcademy {
         &mut self,
         ctx: GlobalContext<'_>,
     ) -> ProduceYouthPlayersResult {
+        // Modified in this fork: with `--no-synthetic-players` the academy
+        // signs nobody. Every footballer in this world is a real, imported
+        // person; a generated newgen is indistinguishable from a real player
+        // once he is in the save, so the intake is stopped at the source.
+        if !crate::settings::synthetic_players_enabled() {
+            return ProduceYouthPlayersResult::new(Vec::new());
+        }
+
         let current_year = ctx.simulation.date.year();
         let current_month = ctx.simulation.date.month();
 
@@ -233,6 +241,13 @@ impl ClubAcademy {
     }
 
     pub(super) fn ensure_minimum_players(&mut self, ctx: GlobalContext<'_>) {
+        // Modified in this fork: no trialists either. Topping an academy up
+        // to its floor is exactly the kind of quiet minting the fork exists
+        // to prevent — an academy below its floor simply stays there.
+        if !crate::settings::synthetic_players_enabled() {
+            return;
+        }
+
         let min_players = self.settings.players_count_range.start as usize;
         let current_count = self.players.players.len();
         if current_count >= min_players {

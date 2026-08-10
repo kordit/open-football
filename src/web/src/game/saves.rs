@@ -301,7 +301,7 @@ fn request_team(entry: &SaveListEntry) -> String {
 /// the write-lock critical section is a pointer swap only, and the
 /// outgoing world graph is dropped off-lock on a blocking thread so
 /// page handlers never stall behind a multi-second deallocation.
-async fn publish_world(state: &GameAppData, world: SimulatorData) {
+pub(crate) async fn publish_world(state: &GameAppData, world: SimulatorData) {
     state.i18n.set_date(world.date);
     let previous = {
         let mut guard = state.data.write().await;
@@ -394,7 +394,7 @@ pub async fn game_save_action(State(state): State<GameAppData>) -> ApiResult<Jso
 
 /// Serialize `world` into `{slug}.ofs`, preserving the slot's original
 /// save name and creation timestamp when the file already exists.
-fn write_slot(
+pub(crate) fn write_slot(
     saves_dir: &FsPath,
     slug: &str,
     world: &SimulatorData,

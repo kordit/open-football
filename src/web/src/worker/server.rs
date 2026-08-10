@@ -4,7 +4,7 @@
 //! coordinator. Each connection runs through one `Handshake` exchange
 //! and then a stream of `PlayBatch` requests.
 
-use crate::common::default_handler::{COMPUTER_NAME, CPU_BRAND};
+use crate::common::{COMPUTER_NAME, CPU_BRAND};
 use crate::worker::protocol::{MatchEnvelope, MatchOutcome, PROTOCOL_VERSION, Request, Response};
 use crate::worker::registry::LatencyTimer;
 use crate::worker::transport::Frame;

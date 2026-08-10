@@ -10,6 +10,11 @@ CLAUDE.md
 
 training_result.json
 
+# Artefakty czasu wykonania, nie zrodla. Save kariery potrafi miec 50 MB,
+# a katalog nagran meczow rosnie o ~44 MB na zapisany mecz — jedno i drugie
+# odtwarza sie z gry, wiec w repozytorium nie ma czego szukac.
+saves
+*.ofs
 match_results
 publish
 

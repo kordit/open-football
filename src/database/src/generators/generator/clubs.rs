@@ -289,6 +289,15 @@ fn build_team_players(
             .unwrap_or_default();
     }
 
+    // Modified in this fork: with `--no-synthetic-players` the engine never
+    // invents a footballer. A club the world database says nothing about
+    // gets an empty squad rather than a made-up one — the premise is that
+    // every player in this world is a real, imported person, and a generated
+    // player is indistinguishable from a real one once he is in the save.
+    if !core::settings::synthetic_players_enabled() {
+        return Vec::new();
+    }
+
     // Academy teams for clubs without ODB data fall back to the academy
     // generator — youth intake is owned by the academy system.
     if matches!(team_type, TeamType::U18 | TeamType::U19) {

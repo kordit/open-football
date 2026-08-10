@@ -13,6 +13,53 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   (real-world club/player data of unclear provenance; replaced by an
   externally supplied database file generated from our own data sources).
 
+- **The entire user interface.** This fork serves no HTML: the game's
+  front end is the Blade panel in the parent repository, which reads the
+  world through `GET /api/world/snapshot` and drives it through
+  `/api/game/*`. Roughly 30 000 lines and all 59 askama templates went,
+  including the sections this game has no use for at all — upstream's
+  Champions League, Europa League, Conference League, Copa Libertadores
+  and national-team competition pages. (International football was
+  already switchable off in the simulation via `--no-international`;
+  this removes its interface as well.)
+
+  Deleted in full: `src/web/src/{about, champions_league,
+  conference_league, copa_libertadores, countries, cups, europa_league,
+  leagues, national_competitions, playoffs, staff, teams, watchlist,
+  views, map, face, search}`, `src/web/src/layout.html`,
+  `src/web/src/player/{awards, contract, events, get, history, matches,
+  newspaper, personal, relations, transfers}` and
+  `src/web/src/player/player_layout.html`, `src/web/src/match/get/`,
+  `src/web/src/workers/index.html`.
+
+  Also deleted: `src/web/src/ai/` — the LLM agent, client and tool
+  definitions existed solely to power the "AI report" dialogs on the team
+  and player pages, so it had no caller left.
+
+  The club-selection map was not lost: `src/web/src/map/geometry.rs` was
+  converted to `resources/data/poland-voivodeships.json` in the parent
+  repository and is rendered by the Blade club picker. Attribution for
+  that geometry moved with it (MIT, © 2019 Piotr Patrzyk; GUGiK PRG).
+
+  Note: `assets/static/**` (the stylesheet and fonts of the removed UI)
+  is still embedded in the binary as dead weight — `assets/i18n/**` in the
+  same tree is live, so pruning it means narrowing the `RustEmbed` folder
+  rather than deleting the directory. That pruning is still pending; what
+  has already happened is the rescue of the four files in there that the
+  parent repository needs, copied out ahead of the deletion:
+
+  | From | To (parent repository) |
+  |---|---|
+  | `assets/static/js/pixi.min.js` | `public/vendor/pixi/pixi.min.js`, with its MIT licence text alongside in `public/vendor/pixi/LICENSE` |
+  | `assets/static/images/match/field.svg`, `ball.png` | `public/img/match/` |
+  | `assets/static/images/player/pole.png` | `public/img/player/` |
+
+  PixiJS 8.6.6 and the pitch artwork are what the removed match page drew
+  its 2D replay with (`src/web/src/match/get/index.html`, and the still-live
+  dev harness `.dev/match/src/viewer.html`). The Blade panel is taking that
+  renderer over, so the assets follow it rather than dying with the page.
+  Licences travel with the files, same treatment the map geometry got above.
+
 ## Added
 
 - `NOTICE` — Apache-2.0 attribution.
@@ -25,19 +72,42 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   tests in place of the removed embedded database.
 - `Cargo.toml` — added the `quick` build profile (release semantics, thin
   LTO) for day-to-day simulation runs.
-- `src/web/src/map/` (`mod.rs`, `routes.rs`, `index.html`, `geometry.rs`) —
-  interactive club-selection map of Poland at `GET /{lang}/map`
-  (voivodeship SVG with live club counts; `?region={voivodeship}` drills
-  into that voivodeship's football districts with their leagues and clubs).
-  `geometry.rs` is generated from
+- `src/web/src/snapshot/` (`mod.rs`, `routes.rs`) — `GET /api/world/snapshot`,
+  the read model consumed by the Laravel panel. Serialises the world
+  (league tables, clubs, teams, fixtures with results, players with full
+  skill/contract/statistics detail) as JSON, gzipped when the client
+  advertises it. `scope=delta` (default) carries tables plus the managed
+  club's squad; `scope=full` carries every club and player, for the
+  initial sync and season-rollover resync. `since=YYYY-MM-DD` trims the
+  fixture list. This endpoint exists because the fork's UI is being
+  retired in favour of the Blade panel in the parent repository — the
+  engine keeps ownership of career state (the save), and Postgres holds
+  a projection rebuilt from this endpoint.
+
+- `src/web/src/lineup/` (`mod.rs`, `routes.rs`) — `POST /api/game/lineup`,
+  the manager-set starting eleven and formation for the managed club.
+  Upstream has no human selection at all; this pins the requested players
+  via `Player.is_force_match_selection` (clearing the pin across the whole
+  club first, so the endpoint is idempotent) and sets `Team.tactics` to
+  the requested `MatchTacticType`. The bench is deliberately left to the
+  club's coach — pinning substitutes fights the in-match substitution
+  logic, which reads form and game state. Every other club in the world
+  keeps selecting for itself.
+
+- ~~`src/web/src/map/`~~ — an interactive club-selection map of Poland was
+  added here and has since been **removed with the rest of the interface**.
+  Its geometry lives on in the parent repository as
+  `resources/data/poland-voivodeships.json`, rendered by the Blade club
+  picker, and carries the same attribution: generated from
   https://github.com/ppatrzyk/polska-geojson
   (`wojewodztwa/wojewodztwa-min.geojson`, MIT License, © 2019 Piotr
   Patrzyk; boundaries derived from GUGiK PRG public-sector open data),
   projected to a 600×560 viewBox. Powiat-level geometry was deliberately
   not used: the pyramid's district codes are football okręgi
   ("warszawa-i", "podhale", "wielkopolskie-iii"), which do not correspond
-  to powiat boundaries, so level 2 renders as a styled district list
-  instead of a sub-map.
+  to powiat boundaries, so the second level is a district list rather
+  than a sub-map. The entry is kept here rather than dropped because §4(b)
+  asks for a running log, and the geometry's licence follows the file.
 
 ## Modified
 
@@ -65,16 +135,65 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   `saturating_sub`; leagues with fewer than 5 teams underflowed (panic) here.
 - `src/web/src/settings.rs` — added `RunMode` (serve / simulate /
   validate-db), `--database=`, `--no-international`.
-- `src/web/src/lib.rs` — export `RunMode`; registered the new `map` module.
-- `src/web/src/routes.rs` — merged the club-selection map routes.
-- `src/web/src/views/mod.rs` — added `map_section` / `map_menu` sidebar
-  entries ("Mapa") to the main menus.
-- `src/web/src/countries/list/index.html` — home page links to the
-  club-selection map ("Nowa kariera — wybierz klub z mapy") above the
-  saves panel.
-- `src/web/assets/static/css/style.css` — styles for the club-selection
-  map (voivodeship SVG, legend, district/league/club lists, home CTA).
-- `src/web/assets/i18n/en.json`, `pl.json` — added `map`, `choose_region`,
-  `districts`, `clubs`, `new_career_map` keys.
+- `src/web/src/lib.rs` — export `RunMode`; module list cut down to the
+  JSON API (`snapshot` and `lineup` added, every page module dropped);
+  `GameAppData` lost its `ai` / `ai_jobs` fields with the AI module; the
+  startup log line no longer advertises a UI.
+- `src/web/src/routes.rs` — rewritten as a pure JSON router: one route
+  group per API area, `GET /` returns a service descriptor instead of a
+  language redirect, and the language-prefix middleware, `/sitemap.xml`
+  and the redirect-to-home error handler are gone with the pages.
+- `src/web/src/common/mod.rs` — collapsed from a page-helper grab-bag
+  (CSS versioning, embedded static-file serving with language-prefix
+  redirects, slugs, "potential stars", friendly-source lookups) to the
+  embedded `Assets` bundle the i18n catalogues read and the machine
+  identity a worker reports in its handshake.
+- `src/web/src/workers/mod.rs`, `workers/routes.rs` — the `/{lang}/workers`
+  operator page and its row DTO removed; the registry JSON endpoints stay,
+  because the distributed match dispatcher is driven through them.
+- `src/web/src/player/mod.rs`, `match/mod.rs`, `match/routes.rs` — reduced
+  to the endpoints the panel calls (manager actions on players; match
+  replay metadata and chunks).
+- `src/web/src/game/saves.rs` — `write_slot` and `publish_world` widened to
+  `pub(crate)` so the lineup handler persists and publishes the world the
+  same way takeover does. (File is itself fork-added.)
 - `src/main.rs` — subcommand dispatch; headless modes default to quiet
-  logging.
+  logging; no longer opens a browser at startup (there is no page to open).
+- `src/web/assets/i18n/en.json`, `pl.json` — added `map`, `choose_region`,
+  `districts`, `clubs`, `new_career_map` keys. Now unused (the pages that
+  read them are gone), kept only because the catalogue completeness tests
+  compare every locale against English.
+
+## Data files
+
+Two directories in this tree are runtime artefacts of playing the game, not
+sources, and both are now ignored (`saves`, `*.ofs`, `match_results`):
+
+- `saves/` — OFSV career saves. One save of the Polish pyramid is 5-62 MB and
+  a slot autosaves on every tick, so the directory grows without bound. Five
+  of these files (214 MB) had been committed by mistake, starting with
+  `a793c956` (the save-slot session layer); they were removed from the index
+  here and purged from the fork's commits with `git filter-repo` while the
+  fork was still unpushed. The files themselves are untouched on disk — a
+  save is a player's career, and the engine is its owner.
+
+  The purge was deliberately scoped `--refs f0b19d78..master`, so only this
+  fork's own commits were rewritten and every upstream commit keeps its
+  original identity. Rewriting the whole history would have been simpler and
+  reclaimed the same space, but it renames upstream's commits too, and a fork
+  that no longer descends from upstream cannot cherry-pick upstream fixes.
+  That matters here more than in most forks: the match engine under
+  `src/core/src/match/` is still substantially upstream code and is where the
+  next round of fork work lands.
+- `match_results/` — recorded match replays: gzipped position chunks at
+  ~44 MB per recorded match, already ignored upstream of this change. Nothing
+  prunes them yet (a retention policy is planned alongside the live-match
+  work); they are safe to delete at any time, at the cost of losing the
+  ability to re-watch past matches. The save file never contained them —
+  `MatchResultRaw.position_data` is `#[serde(skip)]`.
+
+Earlier entries for `src/web/src/views/mod.rs`,
+`src/web/src/countries/list/index.html` and
+`src/web/assets/static/css/style.css` (sidebar entry, home-page CTA and
+styles for the club-selection map) no longer apply — those files were
+deleted with the rest of the interface; see Removed.
