@@ -219,6 +219,14 @@ pub struct MatchCoach {
     pub cum_field_tilt_ticks: u32,
     /// Rolling-window snapshot for delta computation.
     pub metric_snapshot: MetricSnapshot,
+    /// Added in this fork: an instruction the human manager set from the
+    /// live match screen, which the AI evaluator must not overwrite.
+    ///
+    /// `evaluate_coaches` runs every ~500 ticks and unconditionally
+    /// reassigns `instruction`, so without this the manager's choice would
+    /// survive about five seconds of match time. `None` means this side is
+    /// coached by the engine, which is true of every club but one.
+    pub manual_instruction: Option<CoachInstruction>,
 }
 
 impl Default for MatchCoach {
@@ -233,6 +241,7 @@ impl Default for MatchCoach {
             cum_possession_ticks: 0,
             cum_field_tilt_ticks: 0,
             metric_snapshot: MetricSnapshot::default(),
+            manual_instruction: None,
         }
     }
 }
@@ -240,6 +249,28 @@ impl Default for MatchCoach {
 impl MatchCoach {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Added in this fork: take the instruction off the AI and give it to
+    /// the manager. Applied immediately, not at the next evaluation.
+    pub fn set_manual_instruction(&mut self, instruction: CoachInstruction) {
+        self.manual_instruction = Some(instruction);
+        self.instruction = instruction;
+    }
+
+    /// Added in this fork: hand the instruction back to the AI.
+    ///
+    /// The current instruction is deliberately left where the manager put
+    /// it — the next evaluation pass, at most five sim-seconds away, will
+    /// move it if it disagrees. Snapping back here would produce a visible
+    /// flicker for no gain.
+    pub fn release_manual_instruction(&mut self) {
+        self.manual_instruction = None;
+    }
+
+    /// Whether the manager currently owns this side's instruction.
+    pub fn instruction_is_manual(&self) -> bool {
+        self.manual_instruction.is_some()
     }
 
     /// Evaluate match state and decide what instruction to give.

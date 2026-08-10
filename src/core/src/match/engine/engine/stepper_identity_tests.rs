@@ -122,7 +122,7 @@ fn build_player(id: u32, team_id: u32, pos: PlayerPositionType, level: f32) -> M
 /// The bench is not decoration: substitutions are the one part of the tick
 /// body that mutates the roster under the loop, so a driver that keeps a stale
 /// view of the squad diverges here and nowhere else.
-fn squad(team_id: u32, level: f32) -> MatchSquad {
+pub(super) fn squad(team_id: u32, level: f32) -> MatchSquad {
     let base = team_id * 1_000;
 
     MatchSquad {
@@ -151,7 +151,7 @@ fn squad(team_id: u32, level: f32) -> MatchSquad {
 /// Everything pinned. `MatchEngineConfig::default()` reads the wall clock for
 /// `today`, which would make two runs of the same seed differ across midnight
 /// — the youth-protection substitution branch compares against it.
-fn config(seed: u64) -> MatchEngineConfig {
+pub(super) fn config(seed: u64) -> MatchEngineConfig {
     MatchEngineConfig {
         seed: Some(seed),
         today: NaiveDate::from_ymd_opt(2025, 10, 4).unwrap(),
@@ -346,7 +346,7 @@ fn clip(line: &str) -> String {
 ///
 /// So each run is preceded by `set_seed`, which bumps the generation counter
 /// and forces this thread's stream to rebuild from a known base.
-fn pin_streams(stream_seed: u64) {
+pub(super) fn pin_streams(stream_seed: u64) {
     RandomEngine::set_seed(stream_seed);
 }
 

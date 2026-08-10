@@ -606,7 +606,7 @@ impl WeeklyMatchFacts {
         let hooked: FxHashSet<u32> = details
             .substitutions
             .iter()
-            .filter(|sub| sub.reason == SubstitutionReason::Discretionary)
+            .filter(|sub| sub.reason.is_managerial_choice())
             .map(|sub| sub.player_out_id)
             .collect();
 

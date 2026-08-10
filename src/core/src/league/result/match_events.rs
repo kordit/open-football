@@ -2204,12 +2204,7 @@ fn dispatch_match_outcomes<D: LeagueProcessAccess>(
         .substitutions
         .iter()
         .filter(|s| s.team_id == side.team_id)
-        .filter(|s| {
-            matches!(
-                s.reason,
-                crate::r#match::engine::flow::result::SubstitutionReason::Discretionary
-            )
-        })
+        .filter(|s| s.reason.is_managerial_choice())
         .filter(|s| (s.match_time_ms / 60_000) as u16 <= early_hook_threshold_minutes)
         .map(|s| s.player_out_id)
         .collect();
@@ -2364,10 +2359,7 @@ fn dispatch_match_outcomes<D: LeagueProcessAccess>(
             }
             // Only discretionary swaps qualify — injury / youth
             // protection are never a frustration trigger.
-            if !matches!(
-                sub.reason,
-                crate::r#match::engine::flow::result::SubstitutionReason::Discretionary
-            ) {
+            if !sub.reason.is_managerial_choice() {
                 continue;
             }
             let pid = sub.player_out_id;

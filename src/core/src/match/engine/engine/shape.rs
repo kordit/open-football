@@ -227,20 +227,29 @@ impl<const W: usize, const H: usize> FootballEngine<W, H> {
         let away_metrics =
             Self::build_rolling_metrics(&mut context.coach_away, current_tick, &away_input);
 
-        context.coach_home.evaluate_with_metrics(
-            home_goals - away_goals,
-            match_progress,
-            home_avg_condition,
-            current_tick,
-            home_metrics,
-        );
-        context.coach_away.evaluate_with_metrics(
-            away_goals - home_goals,
-            match_progress,
-            away_avg_condition,
-            current_tick,
-            away_metrics,
-        );
+        // A manager-set instruction outranks the evaluator. Only the two
+        // `evaluate_with_metrics` calls are gated — both `build_rolling_metrics`
+        // calls above still run, and must: they rotate the 15-minute snapshot,
+        // so a side that hands control back to the AI finds a warm window
+        // instead of a cold one that reads the whole match as one delta.
+        if !context.coach_home.instruction_is_manual() {
+            context.coach_home.evaluate_with_metrics(
+                home_goals - away_goals,
+                match_progress,
+                home_avg_condition,
+                current_tick,
+                home_metrics,
+            );
+        }
+        if !context.coach_away.instruction_is_manual() {
+            context.coach_away.evaluate_with_metrics(
+                away_goals - home_goals,
+                match_progress,
+                away_avg_condition,
+                current_tick,
+                away_metrics,
+            );
+        }
     }
 
     /// Build a `RollingTeamMetrics` from current cumulative totals and

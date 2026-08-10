@@ -114,6 +114,100 @@ pub fn process_substitutions(
     field.away_coach_snapshot = away_snapshot;
 }
 
+/// Added in this fork: a substitution the human manager asked for.
+///
+/// Goes through the same `execute_substitution` the AI passes use, and that
+/// is the whole point. Calling `field.substitute_player` directly looks like
+/// it works — the players swap — but skips the stat line of the man coming
+/// off, his physical snapshot, the entry stamp of the man coming on, the
+/// stoppage time and the aggregate invalidation. The match then finishes with
+/// wrong ratings and a wrong condition drop, and nothing anywhere says so.
+///
+/// Validation deliberately mirrors what the AI pass is allowed to do rather
+/// than what a manager might wish for: the quota is shared, a sent-off player
+/// cannot be replaced (he is off, that is the punishment), and a goalkeeper
+/// may only be swapped for a goalkeeper.
+pub fn execute_manual_substitution(
+    field: &mut MatchField,
+    context: &mut MatchContext,
+    team_id: u32,
+    player_out_id: u32,
+    player_in_id: u32,
+) -> Result<(), SubstitutionError> {
+    if !context.can_substitute(team_id) {
+        return Err(SubstitutionError::QuotaExhausted);
+    }
+
+    let out = field
+        .get_player(player_out_id)
+        .ok_or(SubstitutionError::NotOnPitch(player_out_id))?;
+
+    if out.team_id != team_id {
+        return Err(SubstitutionError::WrongTeam(player_out_id));
+    }
+
+    if out.is_sent_off {
+        return Err(SubstitutionError::SentOff(player_out_id));
+    }
+
+    let out_is_keeper = out.tactical_position.current_position.position_group()
+        == PlayerFieldPositionGroup::Goalkeeper;
+
+    let incoming = field
+        .substitutes
+        .iter()
+        .find(|p| p.id == player_in_id)
+        .ok_or(SubstitutionError::NotOnBench(player_in_id))?;
+
+    if incoming.team_id != team_id {
+        return Err(SubstitutionError::WrongTeam(player_in_id));
+    }
+
+    let in_is_keeper = incoming.tactical_position.current_position.position_group()
+        == PlayerFieldPositionGroup::Goalkeeper;
+
+    if out_is_keeper != in_is_keeper {
+        return Err(SubstitutionError::GoalkeeperMismatch);
+    }
+
+    let swapped = Substitutions::execute_substitution(
+        field,
+        context,
+        team_id,
+        player_out_id,
+        player_in_id,
+        SubstitutionReason::Manual,
+    );
+
+    if swapped {
+        Ok(())
+    } else {
+        Err(SubstitutionError::Rejected)
+    }
+}
+
+/// Why a manager's substitution was refused.
+///
+/// Carried back to the panel so the refusal can be explained at the row the
+/// manager clicked, rather than swallowed into a silent no-op.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubstitutionError {
+    /// Both substitutions this side is allowed are already used.
+    QuotaExhausted,
+    /// The outgoing player is not on the pitch.
+    NotOnPitch(u32),
+    /// The incoming player is not among this match's substitutes.
+    NotOnBench(u32),
+    /// One of the two belongs to the other side.
+    WrongTeam(u32),
+    /// The outgoing player was sent off — a red card is not a free swap.
+    SentOff(u32),
+    /// A goalkeeper can only be replaced by a goalkeeper.
+    GoalkeeperMismatch,
+    /// The field refused the swap for a reason the checks above missed.
+    Rejected,
+}
+
 /// Match-side helpers grouped under one namespace. The free-function
 /// versions of these helpers all lived at module scope; bundling them
 /// under a struct keeps `process_substitutions` readable, lets tests

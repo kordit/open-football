@@ -91,6 +91,25 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   its own `while` loop; a match a human watches has to hand control back
   between ticks. Nothing inside a tick changed — see the gate below.
 
+- `src/core/src/match/engine/engine/live.rs` — `LiveMatch`: a match somebody
+  is watching. Owns the four pieces of live state, walks them with the
+  stepper, and stops — at a horizon the caller names, and at half time,
+  before extra time and before penalties. `apply` takes the manager's two
+  commands (substitution, instruction) between ticks, never inside one;
+  `snapshot` is what the panel draws; `finish_headless` is what happens when
+  the manager closes the tab and the league still needs a result.
+
+  Upstream has no such thing: a match runs to its final whistle or not at all.
+
+- `src/core/src/match/engine/engine/live_tests.rs` — the commands actually
+  land: a manual substitution keeps the outgoing player's stat line and
+  physical snapshot (i.e. it went through `execute_substitution`, not around
+  it), an illegal one spends no quota and moves nobody, a manual instruction
+  outlives sixty evaluator passes, half time stops the match until it is told
+  otherwise, and a match abandoned at the 20th minute still finishes to full
+  time with stat lines. Gated `cfg(not(debug_assertions))` for the same
+  reason as the identity gate.
+
 - `src/core/src/match/engine/engine/stepper_identity_tests.rs` — that gate.
   Twenty seeds, the batch driver against an external driver that stops every
   137 ticks, compared on the whole `MatchResultRaw`: goals with their
@@ -168,6 +187,36 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   when international football is disabled.
 - `src/core/src/continent/result/mod.rs` — continental club competition
   draws/simulation skipped when international football is disabled.
+- `src/core/src/match/engine/substitution/substitutions.rs` — added
+  `execute_manual_substitution`, the manager's door into the *same*
+  `execute_substitution` the AI passes use. Deliberately not
+  `field.substitute_player`: that swaps the players and skips the stat line,
+  the physical snapshot, the entry stamp, the stoppage time and the aggregate
+  invalidation, so the match finishes with wrong ratings and a wrong
+  condition drop and nothing says so. Validation mirrors the AI pass —
+  shared quota, no replacing a sent-off player, keeper only for keeper — and
+  refusals come back as a typed `SubstitutionError` so the panel can explain
+  them at the row the manager clicked. Visibility of nothing was widened: it
+  is a free function in the same file.
+- `src/core/src/match/engine/flow/result.rs` — added
+  `SubstitutionReason::Manual` plus `is_managerial_choice()`. A player hooked
+  by a human is exactly as unhappy as one hooked by the AI, so the three
+  places that compared against `Discretionary` (`league/result/match_events.rs`
+  ×2, `simulator/newsroom.rs`) now ask the predicate instead — adding a
+  reason can no longer silently fall out of the frustration and press paths.
+- `src/core/src/league/result/match_events.rs`,
+  `src/core/src/simulator/newsroom.rs` — those three comparisons.
+- `src/core/src/match/engine/teamplay/coach.rs` — `MatchCoach` gained
+  `manual_instruction`, with `set_manual_instruction` /
+  `release_manual_instruction` / `instruction_is_manual`. Releasing leaves
+  the current instruction where the manager put it; the next evaluation moves
+  it if it disagrees, which avoids a visible flicker for no gain.
+- `src/core/src/match/engine/engine/shape.rs` — `evaluate_coaches` skips
+  `evaluate_with_metrics` for a side whose instruction is manual. **Only**
+  those two calls are gated: both `build_rolling_metrics` calls still run,
+  because they rotate the 15-minute snapshot, and a side handing control back
+  to the assistant must find a warm window rather than one that reads the
+  whole match as a single delta.
 - `src/core/src/match/engine/engine/run.rs` — `play_with_config` split: the
   preamble (score, tactics snapshot, field, context, chemistry seeding,
   crowd arousal, kickoff) became `setup()`, which hands back the four

@@ -254,12 +254,13 @@ impl<const W: usize, const H: usize> Default for FootballEngine<W, H> {
     }
 }
 
+pub mod live;
 pub mod phase_prof;
 mod positions;
 mod run;
 mod shape;
 mod shootout;
-mod stepper;
+pub(crate) mod stepper;
 mod tick;
 mod types;
 
@@ -274,6 +275,8 @@ pub use types::*;
 // running: halves are five minutes long under `debug_assertions`.
 //
 //     cargo test --profile quick -p core stepper_identity
+#[cfg(all(test, not(debug_assertions)))]
+mod live_tests;
 #[cfg(all(test, not(debug_assertions)))]
 mod stepper_identity_tests;
 #[cfg(test)]

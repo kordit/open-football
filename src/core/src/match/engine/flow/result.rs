@@ -42,6 +42,29 @@ pub enum SubstitutionReason {
     /// The sacrificed player is a victim of circumstance, not coach
     /// doubt — never a frustration trigger.
     GoalkeeperEmergency,
+    /// Added in this fork: a human manager made the change from the live
+    /// match screen. Treated exactly like `Discretionary` everywhere it
+    /// matters — a player hooked in the 30th minute is just as unhappy,
+    /// and the press writes it up the same way — because from the squad's
+    /// point of view the decision is identical. The reason is kept apart
+    /// only so the match report can say who made it.
+    Manual,
+}
+
+impl SubstitutionReason {
+    /// Whether this swap reads as the manager's judgement of the player.
+    ///
+    /// Injury, youth protection and a keeper emergency are circumstance;
+    /// a discretionary hook and a manual one are a verdict. Every consumer
+    /// that used to compare against `Discretionary` alone asks this instead,
+    /// so adding a reason cannot silently drop out of the frustration and
+    /// press paths.
+    pub fn is_managerial_choice(self) -> bool {
+        matches!(
+            self,
+            SubstitutionReason::Discretionary | SubstitutionReason::Manual
+        )
+    }
 }
 
 /// Final physical state of a player at the moment they left the pitch
