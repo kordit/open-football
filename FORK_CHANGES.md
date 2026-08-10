@@ -84,6 +84,43 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   engine keeps ownership of career state (the save), and Postgres holds
   a projection rebuilt from this endpoint.
 
+- `src/core/src/match/engine/engine/stepper.rs` — one period of a match,
+  one tick at a time. `PeriodLoop` holds the eighteen locals `play_inner`
+  used to keep on its stack, and `FootballEngine::step_period_tick` carries
+  the former loop body. Upstream can only run a match to completion inside
+  its own `while` loop; a match a human watches has to hand control back
+  between ticks. Nothing inside a tick changed — see the gate below.
+
+- `src/core/src/match/engine/engine/stepper_identity_tests.rs` — that gate.
+  Twenty seeds, the batch driver against an external driver that stops every
+  137 ticks, compared on the whole `MatchResultRaw`: goals with their
+  minutes, substitutions, every field of every player's stat line, the
+  physical snapshots the post-match condition drop reads, stoppage time,
+  final tactics, and the serialised replay recording.
+
+  Two things had to be worked around to make the comparison mean anything,
+  and both are properties of the engine rather than of the stepper:
+
+  * **A match is not reproducible from `MatchEngineConfig::seed` alone.**
+    Player AI states draw from `IntegerUtils::random`, i.e. the
+    process-global thread-local stream in `utils::random::engine`, and that
+    stream carries on between matches. The same fixture played twice in one
+    process returns two different scorelines unless
+    `RandomEngine::set_seed` is called in between. The test pins both
+    streams and detects the case where a parallel test in the crate
+    re-seeds the global one mid-match.
+  * **The gate cannot run under `debug_assertions`.** A full match in a
+    debug build trips a pre-existing `debug_assert_eq!` in
+    `player/strategies/processor.rs` ("loose-ball yield chase-table
+    mismatch"), which compares the once-per-tick chase table against a
+    rescan. Verified against the unmodified engine in a clean worktree, so
+    it is not something this work introduced; no test in the crate had ever
+    played a full match in debug, which is why it had gone unnoticed. The
+    module is therefore `#[cfg(not(debug_assertions))]` and the gate runs
+    as `cargo test --profile quick -p core stepper_identity` — which is
+    also the only useful profile, since `MATCH_HALF_TIME_MS` is five
+    minutes under `debug_assertions` and forty-five without.
+
 - `src/web/src/lineup/` (`mod.rs`, `routes.rs`) — `POST /api/game/lineup`,
   the manager-set starting eleven and formation for the managed club.
   Upstream has no human selection at all; this pins the requested players
@@ -131,6 +168,18 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   when international football is disabled.
 - `src/core/src/continent/result/mod.rs` — continental club competition
   draws/simulation skipped when international football is disabled.
+- `src/core/src/match/engine/engine/run.rs` — `play_with_config` split: the
+  preamble (score, tactics snapshot, field, context, chemistry seeding,
+  crowd arousal, kickoff) became `setup()`, which hands back the four
+  pieces of live match state, and `play_inner` became three lines around
+  `stepper::PeriodLoop`. Sequence unchanged and unreordered; several steps
+  there touch the RNG or stamp every player.
+- `src/core/src/match/engine/engine/positions.rs` — `POSITION_RECORD_INTERVAL_MS`
+  lifted out of the `FootballEngine<W, H>` impl to module scope so the
+  stepper, which is not generic over the pitch size, arms its recording
+  cursor from the same constant. The associated const remains as an alias.
+- `src/core/src/match/engine/engine/mod.rs` — registered `stepper` and the
+  identity-gate test module.
 - `src/core/src/league/simulation/matchday.rs` — bottom-5 rival check uses
   `saturating_sub`; leagues with fewer than 5 teams underflowed (panic) here.
 - `src/web/src/settings.rs` — added `RunMode` (serve / simulate /

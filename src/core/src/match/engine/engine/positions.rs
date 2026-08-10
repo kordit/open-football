@@ -11,13 +11,20 @@ use crate::r#match::player::state::PlayerState;
 /// reaction latency on a player who is out of the play entirely.
 const LOD_DISTANCE_SQ: f32 = 250.0 * 250.0;
 
+/// Record positions every 30ms (every 3rd tick) instead of every 10ms.
+///
+/// Modified from upstream: lifted out of the `FootballEngine<W, H>` impl so
+/// `stepper::PeriodLoop` — which is not generic over the pitch size — can arm
+/// its recording cursor from the same number. The associated const below stays
+/// as the name the rest of the engine already uses.
+pub(super) const POSITION_RECORD_INTERVAL_MS: u64 = 30;
+
 impl<const W: usize, const H: usize> FootballEngine<W, H> {
     // ───────────────────────────────────────────────────────────────────────
     // Position recording
     // ───────────────────────────────────────────────────────────────────────
 
-    /// Record positions every 30ms (every 3rd tick) instead of every 10ms.
-    pub(super) const POSITION_RECORD_INTERVAL_MS: u64 = 30;
+    pub(super) const POSITION_RECORD_INTERVAL_MS: u64 = POSITION_RECORD_INTERVAL_MS;
 
     #[inline]
     pub fn write_match_positions(

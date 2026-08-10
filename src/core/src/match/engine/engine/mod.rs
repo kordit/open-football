@@ -259,11 +259,22 @@ mod positions;
 mod run;
 mod shape;
 mod shootout;
+mod stepper;
 mod tick;
 mod types;
 
 use crate::r#match::TeamSkillAggregates;
 pub use types::*;
 
+// The identity gate plays whole matches, and a whole match in a build with
+// `debug_assertions` trips a pre-existing loose-ball assertion in
+// `player/strategies/processor.rs` — verified against the unmodified engine,
+// so it is not something the stepper introduced. Until that is fixed the gate
+// only builds in optimised profiles, which is also the only place it is worth
+// running: halves are five minutes long under `debug_assertions`.
+//
+//     cargo test --profile quick -p core stepper_identity
+#[cfg(all(test, not(debug_assertions)))]
+mod stepper_identity_tests;
 #[cfg(test)]
 mod tests;
