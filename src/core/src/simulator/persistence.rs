@@ -25,6 +25,13 @@ use std::path::Path;
 /// File magic — "Open Football SaVe".
 pub const SAVE_MAGIC: [u8; 4] = *b"OFSV";
 /// Bump on any incompatible change to the header or body encoding.
+/// Stays at v2 on purpose. The manager's plan briefly lived in the body and
+/// took the version to 3 with it; taking it back out (`Tactics.instructions`
+/// / `Tactics.preset` are now `#[serde(skip)]`) restored the v2 layout
+/// exactly, so v2 is what this reads and writes. Careers written during that
+/// window carry a v2 header over a v3-shaped body and cannot be recovered —
+/// which is the whole argument for keeping manager decisions out of the
+/// world in the first place.
 /// v2: `SimulatorData.player_manager` added to the body (career layer,
 /// added in this fork).
 pub const SAVE_FORMAT_VERSION: u32 = 2;

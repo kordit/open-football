@@ -66,7 +66,30 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
 - `FORK_CHANGES.md` — this file.
 - `src/headless.rs` — `simulate` and `validate-db` subcommand implementations.
 - `src/core/src/settings.rs` — process-wide feature switches
-  (`international_enabled`).
+  (`international_enabled`, `synthetic_players_enabled`,
+  `quick_other_matches`).
+- `src/core/src/match/quick.rs` — statistical stand-in for the tick engine,
+  used for every fixture the managed club is not playing in. Produces a full
+  `MatchResultRaw` (scoreline with goal/assist/card details, `FieldSquad`s,
+  substitutions, a per-player `PlayerMatchEndStats` line for everyone who
+  appeared, and ratings computed by the engine's own `RatingContext`) from
+  squad ability instead of from simulated play. It deliberately produces no
+  `position_data` — a quick result is never recorded, replayed or watched.
+  Every roll comes from a `MatchRng` seeded with the same per-fixture seed the
+  real engine gets, so no draw touches the process-global
+  `utils::random::engine` stream and swapping one fixture between the two
+  paths cannot shift any other match's result.
+
+  Why: measured on a full Polish pyramid (890 clubs, 25 273 players), a
+  400-fixture matchday cost 97.8 s of wall clock against 5-9 s for a day with
+  no football on it — the tick engine was ~80% of the cost of advancing a
+  single day, for 399 matches nobody watches. With this path enabled the same
+  matchday takes 19.2 s and the per-chunk match cost drops from 4-8.5 s to
+  0 ms; the remainder is post-match world processing (league results, player
+  development, morale, news), which is untouched. Score distribution over 450
+  fixtures: 3.04 goals/match, 45% home / 26% draw / 29% away, modal results
+  1-1, 1-0, 2-1.
+
 - `src/database/src/data/test-reference.db` — reference-only test fixture
   (continents, countries, name pools; no leagues/clubs/players) used by unit
   tests in place of the removed embedded database.
@@ -130,6 +153,37 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   silence, or a three-hour ceiling, and the assistant finishes the match. So
   does `abandon`: there is no un-playing a fixture, and the league is waiting
   for a result either way.
+
+  `advance` also answers with `frames` and `incidents` — the picture, not just
+  the scoreline. `frames` is a slice of the live recording
+  (`ResultMatchPositionData::window`) covering exactly the football just
+  played: ball and player positions, passes, per-player states. `incidents`
+  are the goals, fouls and cards awarded inside the same window, each carrying
+  its own timestamp so a viewer running at 12× does not put a goal on the
+  scoreboard twelve seconds before the shot. Both ride along with `advance`
+  rather than living at their own endpoint: the window is the one just
+  simulated, so a separate request would carry the same two cursors and could
+  only return the same answer, one round trip later.
+
+  `POST /api/live/demo` starts a live match that is on nobody's calendar: two
+  real squads, no fixture, no matchday, no process lock, and the result
+  dropped at the final whistle. The world is read once (to pick the elevens)
+  and never written. It exists because the 2D pitch is the hardest part of the
+  panel to get right and the slowest to reach through a career — one attempt
+  per matchday, and a mistake costs a season to retry. Deliberately the same
+  `LiveMatch` and the same five endpoints rather than a mock: a stub fed canned
+  frames would confirm the drawing and nothing else.
+
+  A demo asked for while a demo is running **replaces** it — the match being
+  replaced has no result, no calendar and no consequences, and "start another
+  one" is the whole point of that screen. A fixture is never taken over: the
+  league is waiting for its result and the matchday is parked inside it. The
+  takeover waits for the outgoing session to report itself done, and every
+  match now tidies its slot with `LiveRegistry::clear_if(session_id)` rather
+  than `clear()` — the tidying runs after the session is marked done, which is
+  exactly the moment the next one is allowed to move in, so an unconditional
+  clear would wipe the newcomer and leave a match that starts fine and then
+  reports that it does not exist.
 
 - `src/core/src/match/dispatch.rs` — added `MatchInterceptor` and
   `MatchInterceptorRegistry`: one fixture claimed out of a matchday and played
@@ -203,8 +257,97 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   than a sub-map. The entry is kept here rather than dropped because §4(b)
   asks for a running log, and the geometry's licence follows the file.
 
+### `core/src/club/team/tactics/plan.rs` — new
+
+The manager's plan on two axes: `AttackingPlan` (balanced / possession /
+direct / counter / wings) and `DefensivePlan` (mid block / high press /
+low block / man marking / offside trap). The pair fills the ten
+`TeamInstructions` dials the tactical bus already consumes — the attack
+owns the five with-the-ball dials, the defence the five without.
+
+Replaces the single-axis `TacticalPreset` (removed from
+`team_instructions.rs`), which forced one row to decide both how a side
+attacked and how it defended. `AttackingPlan::against` states which
+defence each attack takes apart and which smothers it; it is a statement
+of intent for the dials to produce on the pitch, not a multiplier applied
+to results.
+
+
 ## Modified
 
+- `src/core/src/match/game.rs` — `Match::play` routes to
+  `QuickMatch::play` when `settings::quick_other_matches()` is on and the
+  fixture is neither the managed club's (`Match::record`, stamped by
+  `simulator/matchday.rs`) nor being recorded. Everything else is unchanged,
+  including the seeded entry point into the real engine.
+- `src/core/src/match/mod.rs` — registers and re-exports `quick`.
+- `src/core/src/match/engine/flow/context.rs` — added `MatchIncident`,
+  `MatchIncidentRecord` and `MatchContext::note_incident` /
+  `incidents_between`: an append-only, timestamped log of the moments a match
+  ticker names out loud. Goals, fouls and cards were already reconstructable
+  from `statistics.items`; offsides were a bare counter, and corners, shots
+  and saves left no dated trace at all, so a live screen could show a
+  scoreline and nothing that explained it. `RefCell` because the sites that
+  know these things (ball physics, the shot handler, the save credit path)
+  hold `&MatchContext` — the same trade `MatchRng` makes one field below.
+  Stamped at: `ball/ball/goal.rs` (corner awarded),
+  `player/events/players.rs` (offside called, shot taken, shot caught,
+  shot parried/punched).
+- `src/core/src/match/engine/player/strategies/common/team/team.rs` —
+  `compute_is_best_player_to_chase_ball` now elects exactly ONE chaser.
+  It used to ask "is any teammate at least 36% better than me?"
+  (`score < player_score * 0.64`) and call everyone who survived that the
+  best chaser; around a loose ball the candidates sit at nearly equal
+  distances, so nobody cleared 36% and the whole cluster passed at once —
+  and two dozen call sites (`should_press`, running, guarding, tackling,
+  marking, returning) then sent all of them at the ball. The comment above
+  it said "prevents swarming"; the code did the opposite.
+
+  Measured over full matches before → after: ball-seeking state changes
+  versus shape-keeping ones went from 5.5:1 to 1.5:1, and the share of the
+  match with eight or more players inside 10 m of the ball fell from 21% to
+  16%. Tackle volume barely moved (48.6 → 47.0 per team per match against a
+  real ~18), so this is one contributor and not the whole story.
+
+  Ties break by player id: arbitrary, but stable within and across ticks
+  while the geometry holds, which is what the original `0.8²` was presumably
+  reaching for — applied as a threshold it widened the set instead of
+  stabilising one holder.
+- `src/core/src/match/result.rs` — added `ResultMatchPositionData::window`
+  (with `PositionWindow` and the `thin` helper): one slice of a recording,
+  bounded by two points on the match clock and thinned to a minimum gap
+  between kept samples. The replay viewer downloads a finished match in
+  five-minute chunks; a match being *watched* cannot work that way, because
+  the frames the panel wants do not exist yet when it asks. `step_ms` is a
+  floor, not a resample grid — the engine records every 30 ms, and ten frames
+  per second of football is already past what the eye resolves. The last
+  sample of every series is always kept: it is the position the viewer holds
+  until the next window arrives.
+- `src/core/src/match/engine/flow/context.rs`,
+  `src/core/src/match/engine/engine/run.rs` — `MatchEngineConfig` gained
+  `force_event_tracking`, and `setup` honours it alongside
+  `MatchRuntime::events_mode()`. The global flag is an archiving decision
+  covering every match in the world; a live match needs passes and player
+  states for a different reason — they are what the 2D pitch draws lines and
+  labels from — and one match worth of tracking is not the cost that flag
+  exists to control.
+- `src/core/src/match/engine/engine/live.rs` — a live match now always
+  records, whatever `MatchRuntime::recordings_mode()` and `Match::record` say,
+  and always tracks events. Stronger than `Match::play`'s rule and necessarily
+  so: here the recording is not an archive, it is the picture on the screen.
+  Added `recording()` (the accumulating `ResultMatchPositionData`) and
+  `incidents(since, until)`, which reads goals, fouls and cards out of the
+  players' own match statistics — every one is already stamped with
+  `context.total_match_time` where it is awarded, so the alternative would be
+  threading a recorder through the goal handler, the foul resolver and the
+  card decision to learn what those call sites already wrote down. `LivePlayer`
+  gained `side` (the half defended right now — the sides swap at half time, so
+  a viewer that assumes home-on-the-left draws the second half back to front)
+  and `position` (the role being played today).
+- `src/web/src/settings.rs` — added the `--quick-other-matches` flag
+  (parsed, applied via `core::settings::set_quick_other_matches`, logged at
+  startup). Off by default: a headless run studying the engine's own output
+  must not silently get a different model.
 - `src/database/src/loaders/compiled.rs` — world database is loaded from an
   external file (`--database=`, `OF_DATABASE_PATH`, `./polish-database.db`)
   instead of `include_bytes!`; added `set_database_path` / `database_path` /
@@ -336,6 +479,16 @@ Upstream base: commit f0b19d78 ("Rating system improve", v1.4.840).
   `districts`, `clubs`, `new_career_map` keys. Now unused (the pages that
   read them are gone), kept only because the catalogue completeness tests
   compare every locale against English.
+
+### `core/src/simulator/persistence.rs`
+
+`SAVE_FORMAT_VERSION` 2 -> 3. The save body is bincode — positional, no
+field names — so adding `Tactics.preset` / `Tactics.instructions` shifts
+every byte after them. Without the bump an old save failed deep inside the
+world decode with `UnexpectedVariant`; with it the loader says plainly that
+the file is from an older format. `#[serde(default)]` does not help here
+and the comment claiming it did has been corrected.
+
 
 ## Data files
 

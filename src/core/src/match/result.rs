@@ -46,6 +46,35 @@ impl ResultPositionDataItem {
     }
 }
 
+/// Added in this fork: the output of [`ResultMatchPositionData::shape_report`].
+///
+/// Real-football reference points, for reading the numbers against
+/// something other than taste:
+///
+/// * `mean_within_10m` — a 10 m circle round the ball holds the duel plus
+///   the nearest support and cover. Two to four is normal; the whole
+///   outfield eleven is a school playground.
+/// * `scrum_share` — share of the match with eight or more players inside
+///   that circle. Should be a rounding error outside set pieces.
+/// * `widest_player_m` — how far the widest player of a side sits from the
+///   centre line, averaged. A 68 m pitch gives 34 m to the touchline, and a
+///   side holding any width at all keeps somebody past 20 m.
+#[derive(Debug, Clone, Default)]
+pub struct ShapeReport {
+    pub samples: u32,
+    pub scrum_samples: u32,
+    pub scrum_share: f32,
+    pub mean_within_10m: f64,
+    /// Indexed [home, away].
+    pub lateral_spread_m: [f32; 2],
+    pub widest_player_m: [f32; 2],
+    pub side_samples: [u32; 2],
+    /// Which player states the pile-ups are made of, counted over scrum
+    /// frames only. Requires `MatchRuntime::set_events_mode(true)`;
+    /// empty otherwise.
+    pub scrum_states: HashMap<String, u32>,
+}
+
 /// Compact serialization: [timestamp, x, y] or [timestamp, x, y, z]
 /// Omits z when it's effectively zero (players on ground), saving ~5 bytes/entry in JSON.
 impl Serialize for ResultPositionDataItem {
@@ -215,6 +244,139 @@ impl ResultMatchPositionData {
     /// `Match::record` stamping) instead of gating on the global flag.
     pub fn has_data(&self) -> bool {
         !self.ball.is_empty() || !self.players.is_empty()
+    }
+
+    /// Added in this fork: how much like a football team did these eleven
+    /// look?
+    ///
+    /// Two numbers, both of them complaints people actually make about the
+    /// 2D pitch: "they all run at the ball" and "nobody holds the width".
+    /// Written against the recording rather than instrumented into the tick
+    /// loop because the recording is already there and costs nothing extra
+    /// — and because a metric that only exists inside a debug build is a
+    /// metric nobody reruns.
+    ///
+    /// Distances come back in METRES. The engine's field is 840×545 units
+    /// for a 105×68 m pitch, so a unit is 12.5 cm and a raw-unit threshold
+    /// reads eight times tighter than whoever wrote it intended.
+    pub fn shape_report(
+        &self,
+        home_outfield: &[u32],
+        away_outfield: &[u32],
+        field_width: f32,
+        field_height: f32,
+        sample_every_ms: u64,
+    ) -> ShapeReport {
+        const UNITS_PER_METRE: f32 = 8.0;
+
+        let mut report = ShapeReport::default();
+        if self.ball.is_empty() {
+            return report;
+        }
+
+        let metres = |units: f32| units / UNITS_PER_METRE;
+        let radius_units = 10.0 * UNITS_PER_METRE;
+        let centre_y = field_height / 2.0;
+
+        // Walk each series with a cursor instead of searching it per
+        // sample: the series are already time-ordered and the sample times
+        // only ever move forward, so the whole report is one linear pass.
+        let mut ball_cursor = 0usize;
+        let mut cursors: HashMap<u32, usize> = HashMap::new();
+
+        let at = |series: &Vec<ResultPositionDataItem>, cursor: &mut usize, t: u64| {
+            while *cursor + 1 < series.len() && series[*cursor + 1].timestamp <= t {
+                *cursor += 1;
+            }
+            series.get(*cursor).map(|item| item.position)
+        };
+
+        let end = self.max_timestamp();
+        let mut t = 0u64;
+        while t <= end {
+            let Some(ball) = at(&self.ball, &mut ball_cursor, t) else {
+                break;
+            };
+
+            let mut near_ball = 0u32;
+            let mut near_ids: Vec<u32> = Vec::new();
+
+            for (side, roster) in [(0usize, home_outfield), (1usize, away_outfield)] {
+                let mut widest: f32 = 0.0;
+                let mut ys: Vec<f32> = Vec::with_capacity(roster.len());
+
+                for &id in roster {
+                    let Some(series) = self.players.get(&id) else {
+                        continue;
+                    };
+                    let mut cursor = cursors.get(&id).copied().unwrap_or(0);
+                    let Some(pos) = at(series, &mut cursor, t) else {
+                        continue;
+                    };
+                    cursors.insert(id, cursor);
+
+                    if (pos - ball).norm() <= radius_units {
+                        near_ball += 1;
+                        near_ids.push(id);
+                    }
+                    widest = widest.max((pos.y - centre_y).abs());
+                    ys.push(pos.y);
+                }
+
+                if ys.is_empty() {
+                    continue;
+                }
+
+                let mean = ys.iter().sum::<f32>() / ys.len() as f32;
+                let variance =
+                    ys.iter().map(|y| (y - mean).powi(2)).sum::<f32>() / ys.len() as f32;
+
+                report.lateral_spread_m[side] += metres(variance.sqrt());
+                report.widest_player_m[side] += metres(widest);
+                report.side_samples[side] += 1;
+            }
+
+            report.mean_within_10m += near_ball as f64;
+            if near_ball >= 8 {
+                report.scrum_samples += 1;
+
+                // Name the states holding the pile-up together. Without
+                // this the report can only say "there is a scrum"; with it
+                // the fix has an address. Only sampled on scrum frames —
+                // the state series is a per-change log, and walking it for
+                // every frame would dominate the report's cost.
+                for id in &near_ids {
+                    if let Some(states) = self.player_states.get(id) {
+                        let name = states
+                            .iter()
+                            .take_while(|entry| entry.timestamp <= t)
+                            .last()
+                            .map(|entry| entry.state.clone());
+                        if let Some(name) = name {
+                            *report.scrum_states.entry(name).or_insert(0) += 1;
+                        }
+                    }
+                }
+            }
+            report.samples += 1;
+
+            t += sample_every_ms;
+        }
+
+        if report.samples > 0 {
+            report.mean_within_10m /= report.samples as f64;
+            report.scrum_share = report.scrum_samples as f32 / report.samples as f32;
+        }
+        for side in 0..2 {
+            if report.side_samples[side] > 0 {
+                let n = report.side_samples[side] as f32;
+                report.lateral_spread_m[side] /= n;
+                report.widest_player_m[side] /= n;
+            }
+        }
+
+        let _ = field_width;
+        report
     }
 
     /// Build a coarse heatmap (bucket-count grid) for a single player from
@@ -605,6 +767,112 @@ impl ResultMatchPositionData {
             .filter(|pass| pass.timestamp >= start && pass.timestamp <= end)
             .collect()
     }
+
+    /// Added in this fork: one slice of the recording, for the live 2D view.
+    ///
+    /// The replay viewer downloads a finished match in five-minute chunks; a
+    /// match being *watched* cannot work that way, because the frames the
+    /// panel wants do not exist yet when it asks. So the live screen pulls the
+    /// same recording the same way it pulls the clock — window by window,
+    /// bounded by the cursor it already carries for `advance`.
+    ///
+    /// `step_ms` is a floor on the gap between kept samples, not a resample
+    /// grid: the engine records every 30 ms, which is ~33 positions per player
+    /// per second of football. At 12× that is 400 points per player per real
+    /// second, and nothing on screen moves smoother for them. Ten frames a
+    /// second (`step_ms = 100`) is already past what the eye resolves on a
+    /// 90-metre pitch drawn 900 pixels wide.
+    ///
+    /// The last sample of a series is always kept, whatever the step: it is
+    /// the position the viewer holds until the next window arrives, so
+    /// dropping it would park every player slightly behind the truth.
+    pub fn window(&self, since_ms: u64, until_ms: u64, step_ms: u64) -> PositionWindow {
+        let step = step_ms.max(1);
+
+        PositionWindow {
+            ball: thin(&self.ball, since_ms, until_ms, step),
+            players: self
+                .players
+                .iter()
+                .filter_map(|(id, samples)| {
+                    let kept = thin(samples, since_ms, until_ms, step);
+                    (!kept.is_empty()).then(|| (*id, kept))
+                })
+                .collect(),
+            passes: self
+                .passes
+                .iter()
+                .filter(|p| p.timestamp >= since_ms && p.timestamp < until_ms)
+                .cloned()
+                .collect(),
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.timestamp >= since_ms && e.timestamp < until_ms)
+                .cloned()
+                .collect(),
+            states: self
+                .player_states
+                .iter()
+                .filter_map(|(id, entries)| {
+                    let kept: Vec<PlayerStateEntry> = entries
+                        .iter()
+                        .filter(|e| e.timestamp >= since_ms && e.timestamp < until_ms)
+                        .cloned()
+                        .collect();
+
+                    (!kept.is_empty()).then_some((*id, kept))
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Keep samples inside `[since, until)`, no denser than one per `step`.
+fn thin(
+    samples: &[ResultPositionDataItem],
+    since: u64,
+    until: u64,
+    step: u64,
+) -> Vec<ResultPositionDataItem> {
+    let in_window: Vec<&ResultPositionDataItem> = samples
+        .iter()
+        .filter(|s| s.timestamp >= since && s.timestamp < until)
+        .collect();
+
+    let Some(last) = in_window.last() else {
+        return Vec::new();
+    };
+
+    let mut kept: Vec<ResultPositionDataItem> = Vec::with_capacity(in_window.len());
+    let mut previous: Option<u64> = None;
+
+    for sample in &in_window {
+        let far_enough = previous.is_none_or(|t| sample.timestamp.saturating_sub(t) >= step);
+
+        if far_enough {
+            kept.push((*sample).clone());
+            previous = Some(sample.timestamp);
+        }
+    }
+
+    // The tail is the position the viewer sits on until the next window.
+    if kept.last().map(|s| s.timestamp) != Some(last.timestamp) {
+        kept.push((*last).clone());
+    }
+
+    kept
+}
+
+/// A slice of a recording: where everything was, and what happened, between
+/// two points on the match clock.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct PositionWindow {
+    pub ball: Vec<ResultPositionDataItem>,
+    pub players: HashMap<u32, Vec<ResultPositionDataItem>>,
+    pub passes: Vec<PassEventData>,
+    pub events: Vec<MatchEventData>,
+    pub states: HashMap<u32, Vec<PlayerStateEntry>>,
 }
 
 pub trait VectorExtensions {

@@ -1,5 +1,6 @@
 use super::engine::FootballEngine;
 use crate::MatchRuntime;
+use crate::r#match::quick::QuickMatch;
 use crate::r#match::{MatchResult, MatchSquad};
 use log::debug;
 
@@ -97,16 +98,37 @@ impl Match {
         // replays) enables recording even when the global flag is off.
         let match_recordings =
             (MatchRuntime::recordings_mode() || self.record) && !self.is_friendly;
-        // Modified from upstream: route through the seeded entry point so a
-        // stamped per-fixture seed makes the match reproducible.
-        let match_result = FootballEngine::<840, 545>::play_seeded(
-            self.home_squad,
-            self.away_squad,
-            match_recordings,
-            self.is_friendly,
-            self.is_knockout,
-            self.seed,
-        );
+
+        // Added in this fork: everything the manager is not involved in can
+        // be resolved statistically instead of ticked out. `record` is the
+        // existing managed-club marker — the world matchday stamps it on any
+        // fixture with the player's team on either side (see
+        // `simulator/matchday.rs`), which is exactly the set that must keep
+        // full fidelity: those are the matches with a replay to watch and a
+        // result the manager is answerable for. Recording implies the real
+        // engine either way, since a quick result has no positions to record.
+        let match_result = if crate::settings::quick_other_matches()
+            && !self.record
+            && !match_recordings
+        {
+            QuickMatch::play(
+                self.home_squad,
+                self.away_squad,
+                self.seed,
+                self.is_knockout,
+            )
+        } else {
+            // Modified from upstream: route through the seeded entry point so a
+            // stamped per-fixture seed makes the match reproducible.
+            FootballEngine::<840, 545>::play_seeded(
+                self.home_squad,
+                self.away_squad,
+                match_recordings,
+                self.is_friendly,
+                self.is_knockout,
+                self.seed,
+            )
+        };
 
         let score = match_result.score.as_ref().expect("no score");
 

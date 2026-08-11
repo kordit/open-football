@@ -15,6 +15,9 @@
 //! makes the calculator boundary obvious from a `cargo doc` view.
 
 use crate::Tactics;
+// Added in this fork: the one place a manager's dial bends a computed
+// signal. See `club::team::tactics::team_instructions`.
+use crate::club::team::tactics::team_instructions::steer;
 use crate::r#match::{MatchField, PlayerSide};
 
 /// The team's high-level game phase. Recomputed from ball position,
@@ -434,6 +437,17 @@ impl TeamTacticalState {
             away_pressing,
         );
 
+        // Modified from upstream: the manager's dials.
+        //
+        // Every steer in this function goes in immediately after the
+        // engine's own read and before the situational adjustments that
+        // follow it (home edge, chasing lift, protect-lead damping). That
+        // ordering is the whole model: the manager sets the plan, the match
+        // bends it. Steering last would let a dial override the scoreline,
+        // which is not what a manager gets to do.
+        home.risk_appetite = steer(home.risk_appetite, inputs.home_tactics.wanted_risk());
+        away.risk_appetite = steer(away.risk_appetite, inputs.away_tactics.wanted_risk());
+
         home.build_up_patience = Self::compute_build_up_patience(
             home_pressing,
             home_counter_press,
@@ -458,6 +472,20 @@ impl TeamTacticalState {
         away.build_up_patience = Self::skill_adjusted_build_up_patience(
             away.build_up_patience,
             inputs.away_skills.build_up_quality,
+        );
+
+        // "Work it short" / "go direct". Steered after the skill
+        // adjustment on purpose: a manager who orders patient build-up
+        // from a side that cannot pass gets a side that tries and keeps
+        // losing it, which is the honest outcome and the reason the
+        // squad-fit readout exists on the tactics board.
+        home.build_up_patience = steer(
+            home.build_up_patience,
+            inputs.home_tactics.wanted_build_up_patience(),
+        );
+        away.build_up_patience = steer(
+            away.build_up_patience,
+            inputs.away_tactics.wanted_build_up_patience(),
         );
 
         // ── Phase ────────────────────────────────────────────────────

@@ -78,13 +78,19 @@ impl<const W: usize, const H: usize> FootballEngine<W, H> {
         let home_target = probe_target(home_tactics_ref.tactic_type, true, home_diff);
         let away_target = probe_target(away_tactics_ref.tactic_type, false, away_diff);
 
+        // Modified from upstream: the manager's dials survive the switch.
+        // `Tactics::with_reason` builds a bare shape, so rebuilding around
+        // a new formation used to silently drop any instructions the human
+        // set — a side told to sit deep would go back to reading its
+        // orders off the formation the moment the coach changed shape.
         let mut any_change = false;
         if let Some(new_shape) = home_target {
             *home_tactics_ref = Tactics::with_reason(
                 new_shape,
                 TacticSelectionReason::GameSituation,
                 home_tactics_ref.formation_strength,
-            );
+            )
+            .with_instructions(home_tactics_ref.instructions, home_tactics_ref.preset);
             any_change = true;
         }
         if let Some(new_shape) = away_target {
@@ -92,7 +98,8 @@ impl<const W: usize, const H: usize> FootballEngine<W, H> {
                 new_shape,
                 TacticSelectionReason::GameSituation,
                 away_tactics_ref.formation_strength,
-            );
+            )
+            .with_instructions(away_tactics_ref.instructions, away_tactics_ref.preset);
             any_change = true;
         }
 

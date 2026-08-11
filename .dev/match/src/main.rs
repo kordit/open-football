@@ -20,6 +20,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+// Added in this fork: `dev_match shape` lives in its own file so this one
+// does not grow for it.
+mod shape;
+
 /// Random squad level range when no explicit level is passed. Covers the
 /// realistic spread from a lower-league squad (6) to an elite top-flight
 /// team (18) — gives us a mix of matchups to stress-test balance across
@@ -176,7 +180,7 @@ const MATCH_ID: &str = "dev-match-001";
 const LEAGUE_SLUG: &str = "dev";
 const CHUNK_DURATION_MS: u64 = 300_000;
 
-const POSITIONS_442: [PlayerPositionType; 11] = [
+pub const POSITIONS_442: [PlayerPositionType; 11] = [
     PlayerPositionType::Goalkeeper,
     PlayerPositionType::DefenderLeft,
     PlayerPositionType::DefenderCenterLeft,
@@ -416,7 +420,7 @@ impl LevelSkillCurve {
 /// PA-cap-driving `ecosystem_score()`. Empirically that collapsed every
 /// level into the same ~5-7 skill band — see `audit_levels` output —
 /// which made `run_stats`' strength-curve alarm meaningless.
-fn generate_player(id: u32, position: PlayerPositionType, level: u8) -> Player {
+pub fn generate_player(id: u32, position: PlayerPositionType, level: u8) -> Player {
     let empty_names = PeopleNameGeneratorData {
         first_names: Vec::new(),
         last_names: Vec::new(),
@@ -2570,6 +2574,13 @@ fn main() {
         // Substitution-usage diagnostic: plays N matches with full benches
         // and reports the per-team subs-count distribution split by final
         // result. Reproduces "some teams never sub" reports from production.
+        // Shape diagnostic: are they playing football or chasing the ball
+        // in a pack? Reads the position recording, not the scoreline.
+        "shape" => {
+            let n: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3);
+            let level: u8 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(14);
+            shape::run_shape(n, level);
+        }
         "subs" => {
             let n: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
             let level: u8 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(14);

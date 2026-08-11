@@ -1,4 +1,6 @@
 use crate::Team;
+use crate::club::team::tactics::plan::TacticalPlan;
+use crate::club::team::tactics::team_instructions::TeamInstructions;
 use crate::club::{PersonBehaviourState, Player, PlayerPositionType, Staff};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -8,6 +10,23 @@ pub struct Tactics {
     pub tactic_type: MatchTacticType,
     pub selected_reason: TacticSelectionReason,
     pub formation_strength: f32, // 0.0 to 1.0 indicating how well this formation suits the team
+    /// Modified from upstream: the manager's dials, when a human set any.
+    ///
+    /// **Never written to the save.** The save body is bincode — positional,
+    /// no field names — so every field added here shifts every byte after it
+    /// and invalidates every career on disk. Three careers were lost in one
+    /// day learning that; the plan does not live in the world any more.
+    ///
+    /// It lives in Postgres next to the lineup, where it belongs: a plan is
+    /// a manager's decision, not a property of the football world, and it is
+    /// handed to the engine per match exactly like the starting eleven is.
+    /// `#[serde(skip)]` is therefore load-bearing — moving it back to
+    /// `default` puts the schema churn back.
+    #[serde(skip)]
+    pub instructions: Option<TeamInstructions>,
+    /// Which named plan the dials came from. Same rule: runtime only.
+    #[serde(skip)]
+    pub preset: Option<TacticalPlan>,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
@@ -25,6 +44,8 @@ impl Tactics {
             tactic_type,
             selected_reason: TacticSelectionReason::Default,
             formation_strength: 0.5,
+            instructions: None,
+            preset: None,
         }
     }
 
@@ -37,7 +58,60 @@ impl Tactics {
             tactic_type,
             selected_reason: reason,
             formation_strength: strength.clamp(0.0, 1.0),
+            instructions: None,
+            preset: None,
         }
+    }
+
+    /// Modified from upstream: attach a manager's dials to this shape.
+    ///
+    /// Consumed builder rather than a setter because the in-match shape
+    /// changer (`evaluate_situational_shape`) rebuilds `Tactics` around a
+    /// new formation and has to carry the dials across — a manager who
+    /// asked for a low block does not stop wanting one because his side
+    /// switched to a back five at 70 minutes.
+    pub fn with_instructions(
+        mut self,
+        instructions: Option<TeamInstructions>,
+        preset: Option<TacticalPlan>,
+    ) -> Self {
+        self.instructions = instructions.map(TeamInstructions::sanitised);
+        self.preset = preset;
+        self
+    }
+
+    // ── the manager's dials, as the tactical bus asks for them ─────────
+    //
+    // Each returns `None` when nobody set anything, which is what
+    // `team_instructions::steer` needs to leave the engine's own read
+    // untouched. Named for the bus signal they steer, not for the dial,
+    // so the wiring at the other end reads straight.
+
+    pub fn wanted_tempo(&self) -> Option<f32> {
+        self.instructions.map(|i| i.tempo)
+    }
+
+    /// Inverted on purpose: patience is the opposite of directness.
+    pub fn wanted_build_up_patience(&self) -> Option<f32> {
+        self.instructions.map(|i| 1.0 - i.directness)
+    }
+
+    pub fn wanted_width(&self) -> Option<f32> {
+        self.instructions.map(|i| i.width)
+    }
+
+    pub fn wanted_risk(&self) -> Option<f32> {
+        self.instructions.map(|i| i.risk)
+    }
+
+    /// Bodies forward is the opposite of bodies kept home, and the bus
+    /// counts the ones kept home.
+    pub fn wanted_support(&self) -> Option<f32> {
+        self.instructions.map(|i| i.support)
+    }
+
+    pub fn wanted_tackle_aggression(&self) -> Option<f32> {
+        self.instructions.map(|i| i.aggression)
     }
 
     pub fn positions(&self) -> &[PlayerPositionType; 11] {
@@ -100,14 +174,34 @@ impl Tactics {
     }
 
     pub fn is_high_pressing(&self) -> bool {
+        // Modified from upstream: the dial answers this directly when set.
+        // 0.65 is where the preset table stops being a mid-block — the
+        // three styles the shape-only branch calls high-pressing sit at
+        // 0.8–1.0 on `pressing_intensity()`, and Balanced sits at 0.6.
+        if let Some(instructions) = self.instructions {
+            return instructions.press >= 0.65;
+        }
+
         matches!(
             self.tactical_style(),
             TacticalStyle::Attacking | TacticalStyle::Possession | TacticalStyle::Compact
         )
     }
 
-    /// Returns pressing intensity from 0.0 to 1.0 based on tactical style
+    /// Returns pressing intensity from 0.0 to 1.0 based on tactical style.
+    ///
+    /// Modified from upstream: a manager's dial replaces the style read
+    /// outright here, rather than steering it. These four getters are the
+    /// *description* of the plan — "what are we trying to do" — and are
+    /// read by squad selection and the AI's opponent model as well as by
+    /// the bus. Steering belongs downstream, where fatigue and the
+    /// scoreline get their say; a half-heard plan at this level would make
+    /// the coach pick a squad for a tactic nobody asked for.
     pub fn pressing_intensity(&self) -> f32 {
+        if let Some(instructions) = self.instructions {
+            return instructions.press;
+        }
+
         match self.tactical_style() {
             TacticalStyle::Attacking | TacticalStyle::Compact => 1.0,
             TacticalStyle::Possession => 0.8,
@@ -121,6 +215,10 @@ impl Tactics {
     /// Returns defensive line height from 0.0 (deep block) to 1.0 (high line).
     /// Controls how far up the pitch defenders position themselves.
     pub fn defensive_line_height(&self) -> f32 {
+        if let Some(instructions) = self.instructions {
+            return instructions.line_height;
+        }
+
         match self.tactical_style() {
             TacticalStyle::Attacking => 0.8,
             TacticalStyle::Possession => 0.7,
@@ -135,6 +233,10 @@ impl Tactics {
     /// Returns team compactness from 0.0 (spread) to 1.0 (very compact).
     /// Controls how tightly defenders stay together laterally.
     pub fn compactness(&self) -> f32 {
+        if let Some(instructions) = self.instructions {
+            return instructions.compactness;
+        }
+
         match self.tactical_style() {
             TacticalStyle::Compact => 1.0,
             TacticalStyle::Defensive => 0.85,
@@ -150,6 +252,10 @@ impl Tactics {
     /// Returns counter-press intensity from 0.0 to 1.0.
     /// Controls how aggressively team presses immediately after losing possession.
     pub fn counter_press_intensity(&self) -> f32 {
+        if let Some(instructions) = self.instructions {
+            return instructions.counter_press;
+        }
+
         match self.tactical_style() {
             TacticalStyle::Attacking | TacticalStyle::Compact => 0.9,
             TacticalStyle::Possession => 0.75,

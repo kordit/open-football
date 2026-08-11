@@ -46,3 +46,29 @@ pub fn set_synthetic_players_enabled(enabled: bool) {
 pub fn synthetic_players_enabled() -> bool {
     SYNTHETIC_PLAYERS_ENABLED.load(Ordering::Relaxed)
 }
+
+/// Whether fixtures the manager is not involved in are resolved by the
+/// statistical model in `match::quick` instead of the tick engine.
+///
+/// The tick engine costs ~250 ms of CPU per fixture. On a full Polish
+/// pyramid a matchday is ~400 fixtures, of which the manager watches at
+/// most one — measured, that is 98 s of wall clock to advance a single
+/// day, against 5-9 s for a day with no football on it. The statistical
+/// model produces the same `MatchResultRaw` shape (scoreline, scorers,
+/// assists, cards, minutes, per-player stat lines, ratings) from squad
+/// ability, so tables, season stats and player development carry on
+/// unchanged; what it cannot produce is position data, which is why the
+/// managed club's own fixtures always go to the real engine.
+///
+/// Turned on via `--quick-other-matches`. Off by default: a headless
+/// simulation run studying the engine's own output must not silently get
+/// a different model.
+static QUICK_OTHER_MATCHES: AtomicBool = AtomicBool::new(false);
+
+pub fn set_quick_other_matches(enabled: bool) {
+    QUICK_OTHER_MATCHES.store(enabled, Ordering::Relaxed);
+}
+
+pub fn quick_other_matches() -> bool {
+    QUICK_OTHER_MATCHES.load(Ordering::Relaxed)
+}

@@ -27,6 +27,11 @@ pub struct Settings {
     /// Clubs get exactly the players the world database supplies, youth
     /// squads are not generated, and academy intake produces nobody.
     pub no_synthetic_players: bool,
+    /// `--quick-other-matches`: resolve every fixture the managed club is
+    /// not playing in with the statistical model instead of the tick
+    /// engine. Turns a ~400-fixture matchday from ~98 s into well under a
+    /// second; the manager's own match is unaffected.
+    pub quick_other_matches: bool,
     pub match_events: bool,
     pub match_recordings: bool,
     pub match_threads: usize,
@@ -64,6 +69,8 @@ impl Settings {
         let no_international = args.iter().any(|arg| arg == "--no-international");
 
         let no_synthetic_players = args.iter().any(|arg| arg == "--no-synthetic-players");
+
+        let quick_other_matches = args.iter().any(|arg| arg == "--quick-other-matches");
 
         let match_events = args.iter().any(|arg| arg == "--match-events");
 
@@ -107,6 +114,7 @@ impl Settings {
             database_path,
             no_international,
             no_synthetic_players,
+            quick_other_matches,
             match_events,
             match_recordings,
             match_threads,
@@ -122,6 +130,7 @@ impl Settings {
         }
         core::settings::set_international_enabled(!self.no_international);
         core::settings::set_synthetic_players_enabled(!self.no_synthetic_players);
+        core::settings::set_quick_other_matches(self.quick_other_matches);
         MatchRuntime::set_events_mode(self.match_events);
         MatchRuntime::set_recordings_mode(self.match_recordings);
         MatchRuntime::init_engine_pool(self.match_threads);
@@ -140,6 +149,13 @@ impl Settings {
                 "Synthetic players disabled (--no-synthetic-players) — no generated squads, \
                  no youth teams, no academy intake; thin clubs stay thin and retirements \
                  are not replaced"
+            );
+        }
+        if self.quick_other_matches {
+            info!(
+                "Quick simulation for other matches (--quick-other-matches) — only the \
+                 managed club's fixtures run the tick engine; the rest of the world is \
+                 resolved statistically (no replays for those matches)"
             );
         }
         if self.match_events {

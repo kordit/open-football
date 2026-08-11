@@ -126,7 +126,7 @@ impl<const W: usize, const H: usize> FootballEngine<W, H> {
 
         let match_position_data = if !config.match_recordings {
             ResultMatchPositionData::empty()
-        } else if MatchRuntime::events_mode() {
+        } else if config.force_event_tracking || MatchRuntime::events_mode() {
             ResultMatchPositionData::new_with_tracking()
         } else {
             ResultMatchPositionData::new()

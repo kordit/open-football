@@ -4,6 +4,7 @@
 //! since the ball can't move other players' positions itself.
 
 use super::Ball;
+use crate::r#match::MatchIncident;
 use crate::r#match::PassOriginRestart;
 use crate::r#match::ball::events::{BallEvent, BallGoalEventMetadata, GoalSide};
 use crate::r#match::engine::goal::GOAL_WIDTH;
@@ -340,6 +341,10 @@ impl Ball {
                 // explanation).
                 self.cached_shot_target = None;
                 self.pass_origin_restart = PassOriginRestart::Corner;
+                // Added in this fork: a corner is a moment somebody watching
+                // wants named, and this is the one place that knows one was
+                // awarded rather than merely taken.
+                context.note_incident(MatchIncident::Corner, taker_id, taker_team);
                 // Pick the corner routine via the SetPieceHistory-aware
                 // helper so repeated identical routines (with no chance
                 // produced) get blocked, varying the delivery flavour

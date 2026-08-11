@@ -1,4 +1,5 @@
 use crate::PlayerFieldPositionGroup;
+use crate::r#match::MatchIncident;
 use crate::r#match::engine::ball::ball::interactions::SaveModel;
 use crate::r#match::engine::flow::context::PendingAdvantage;
 use crate::r#match::engine::flow::rng::MatchRng;
@@ -901,6 +902,18 @@ impl PlayerEventDispatcher {
                 Self::handle_commit_foul_event(fouler_id, severity, field, context);
             }
             PlayerEvent::Offside(player_id, position) => {
+                // Added in this fork: the flag goes in the ticker. The engine
+                // already counted offsides on the player (`statistics.offsides`),
+                // but a bare counter has no minute attached to it, so nothing
+                // could ever tell a watcher when the flag went up.
+                let team_id = field
+                    .players
+                    .iter()
+                    .find(|p| p.id == player_id)
+                    .map(|p| p.team_id)
+                    .unwrap_or(0);
+                context.note_incident(MatchIncident::Offside, player_id, team_id);
+
                 Self::handle_offside_event(player_id, position, field);
             }
             _ => {} // Ignore unsupported events
@@ -2454,6 +2467,15 @@ impl PlayerEventDispatcher {
         let minute = sc::minute_from_ticks(shoot_event_model.tick);
         let pre_distance = (shoot_event_model.target - field.ball.position).magnitude();
 
+        // Added in this fork: every attempt goes in the ticker, stamped here
+        // — the one point every shot passes through, whatever happens to it
+        // afterwards (wall block, save, goal, wide).
+        {
+            let shooter_id = shoot_event_model.from_player_id;
+            let team_id = field.get_player(shooter_id).map(|p| p.team_id).unwrap_or(0);
+            context.note_incident(MatchIncident::Shot, shooter_id, team_id);
+        }
+
         // Direct free-kick wall block. If the ball came from a
         // DirectFreeKick origin AND the band is shootable, roll the
         // wall-block probability. A blocked shot has its trajectory
@@ -3297,6 +3319,8 @@ impl PlayerEventDispatcher {
                 if let Some(player) = field.get_player_mut(player_id) {
                     player.statistics.note_shot_faced(shot_xg, true);
                 }
+                // Added in this fork: caught shots in the ticker.
+                context.note_incident(MatchIncident::Save, player_id, gk_team.unwrap_or(0));
                 let mut shooter_found = false;
                 if let Some(sid) = shooter_id {
                     if let Some(shooter) = field.get_player_mut(sid) {
@@ -4100,10 +4124,14 @@ impl PlayerEventDispatcher {
             // Capture shooter BEFORE we mutate the field — the previous
             // owner is the player whose shot the GK is now clearing.
             let shooter_id = field.ball.previous_owner.filter(|&sid| sid != gk_id);
+            let mut gk_team = 0;
             if let Some(gk) = field.get_player_mut(gk_id) {
                 gk.statistics.saves += 1;
                 gk.statistics.shots_faced += 1;
+                gk_team = gk.team_id;
             }
+            // Added in this fork: parried and punched shots in the ticker.
+            context.note_incident(MatchIncident::Save, gk_id, gk_team);
             let mut shooter_found = false;
             if let Some(sid) = shooter_id {
                 if let Some(shooter) = field.get_player_mut(sid) {

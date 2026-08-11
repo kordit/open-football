@@ -112,11 +112,14 @@ impl PipelineProcessor {
     // Step 5: Shortlist Building
     // ============================================================
 
-    pub fn build_shortlists(country: &mut Country, date: NaiveDate) {
+    pub fn build_shortlists(
+        country: &mut Country,
+        player_lookup: &CountryPlayerLookup,
+        date: NaiveDate,
+    ) {
         // One country walk up front so the per-report / per-listing summary
         // resolutions below are hash probes instead of country scans.
         // Rosters don't change inside this pass (results apply at the end).
-        let player_lookup = CountryPlayerLookup::build(country);
 
         // Pass 1 (PARALLEL): each club's shortlist build reads only the
         // country, the shared lookup, and its own plan — no RNG, no
@@ -1146,7 +1149,8 @@ mod market_fallback_age_tests {
         let date = MarketAgeFixtures::d(2026, 7, 1);
         let mut country = MarketAgeFixtures::world(date);
 
-        PipelineProcessor::build_shortlists(&mut country, date);
+        let lookup = super::CountryPlayerLookup::build(&country, date);
+        PipelineProcessor::build_shortlists(&mut country, &lookup, date);
 
         let plan = &country.clubs[0].transfer_plan;
         let shortlist = plan

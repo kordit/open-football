@@ -816,7 +816,24 @@ impl MidfielderAttackSupportingState {
             .clamp_to_field(field_width, field_height)
     }
 
-    /// Calculate support position during build-up
+    /// Calculate support position during build-up.
+    ///
+    /// Modified from upstream: this used to anchor on the BALL —
+    /// `ball.x + direction * 80`, `ball.y ± ~25` — for every
+    /// attack-supporting midfielder at once. Build-up is most of a match,
+    /// so most of the time all four central midfielders were aiming at the
+    /// same 10 m patch of grass, held apart only by
+    /// `avoid_midfielder_clustering`'s 25-unit (3.1 m) minimum. That is
+    /// the pile-up people see from above: measured with `dev_match shape`,
+    /// this one state supplied 37.8% of the bodies inside a 10 m circle
+    /// round the ball, and the match sat in an eight-plus scrum for 11.9%
+    /// of its length.
+    ///
+    /// A midfielder in build-up offers an angle *from his own zone*. He
+    /// does not stand ten metres from the ball. So the anchor is the
+    /// formation slot, and the ball only pulls him off it — hardest for
+    /// whoever's channel the ball is actually in, barely at all for the
+    /// man on the far side, who holds the width instead.
     fn calculate_buildup_support_position(
         &self,
         ctx: &StateProcessingContext,
@@ -825,16 +842,36 @@ impl MidfielderAttackSupportingState {
         field_height: f32,
     ) -> Vector3<f32> {
         let ball_position = ctx.tick_context.positions.ball.position;
+        let slot = ctx.player.start_position;
+        let centre_y = field_height * 0.5;
 
-        // Provide a progressive passing option
-        let progressive_position = Vector3::new(
-            ball_position.x + (attacking_direction * 80.0),
-            ball_position.y + self.calculate_lateral_movement(ctx),
-            0.0,
-        );
+        // Whose channel is the ball in? 1.0 = directly in front of this
+        // player's slot, 0.0 = the whole pitch away laterally.
+        let lateral_gap = (ball_position.y - slot.y).abs();
+        let in_my_channel = (1.0 - lateral_gap / centre_y).clamp(0.0, 1.0);
 
-        // Ensure we're not too close to other midfielders
-        let adjusted_position = self.avoid_midfielder_clustering(ctx, progressive_position);
+        // The near-side midfielder steps across to offer; the far-side one
+        // stays home. Never 0 — a support player who ignores the ball
+        // entirely is not supporting — and never past 0.6, which is what
+        // stops the four of them converging.
+        let pull = 0.15 + in_my_channel * 0.45;
+
+        let mut target = slot + (ball_position - slot) * pull;
+
+        // Still a progressive option rather than a static shape: push
+        // ahead of the anchor, further when this is genuinely our side of
+        // the pitch to attack down.
+        target.x += attacking_direction * (35.0 + 45.0 * in_my_channel);
+
+        // Hold the shape's width. `team_width_target` is the team-wide
+        // dial — the same one the tactics board's "wąsko / szeroko" slider
+        // drives — so a side told to stretch the pitch keeps its
+        // midfielders in their channels instead of letting the ball suck
+        // them all inside.
+        let width = ctx.team().team_width_target().clamp(0.0, 1.0);
+        target.y = centre_y + (target.y - centre_y) * (0.80 + width * 0.45);
+
+        let adjusted_position = self.avoid_midfielder_clustering(ctx, target);
 
         adjusted_position.clamp_to_field(field_width, field_height)
     }
@@ -1189,23 +1226,45 @@ impl MidfielderAttackSupportingState {
         }
     }
 
-    /// Avoid clustering with other midfielders
+    /// Avoid clustering with other midfielders.
+    ///
+    /// Modified from upstream: the separation was 25 units and the scan
+    /// radius 50. In a field measured in 12.5 cm units that is "keep three
+    /// metres apart, and only notice teammates already within six" — which
+    /// is not anti-clustering, it is a description of a cluster. Real
+    /// build-up spacing between central midfielders is 15–25 m.
+    ///
+    /// Raised to 100 units (12.5 m) with a 220-unit scan, which is the
+    /// distance at which a midfielder can still see he is standing in a
+    /// teammate's passing lane. Kept below the real 15–25 m band on
+    /// purpose: this runs every velocity tick as a nudge on the target,
+    /// not as a hard constraint, and pushing all the way to a realistic
+    /// gap in one pass makes the shape twitch.
     fn avoid_midfielder_clustering(
         &self,
         ctx: &StateProcessingContext,
         target: Vector3<f32>,
     ) -> Vector3<f32> {
+        const MIN_SEPARATION: f32 = 100.0;
+
         let mut adjusted = target;
 
-        // Only check nearby teammates — no need to scan all
-        for midfielder in ctx.players().teammates().nearby(50.0) {
+        for midfielder in ctx.players().teammates().nearby(220.0) {
             if midfielder.id == ctx.player.id || !midfielder.tactical_positions.is_midfielder() {
                 continue;
             }
             let distance = (midfielder.position - adjusted).magnitude();
-            if distance < 25.0 {
-                let away = (adjusted - midfielder.position).normalize();
-                adjusted += away * (25.0 - distance);
+            if distance < MIN_SEPARATION {
+                // Degenerate case: two targets exactly on top of each other
+                // normalises a zero vector into NaN and poisons the
+                // position for the rest of the match.
+                let offset = adjusted - midfielder.position;
+                let away = if offset.magnitude() > f32::EPSILON {
+                    offset.normalize()
+                } else {
+                    Vector3::new(0.0, 1.0, 0.0)
+                };
+                adjusted += away * (MIN_SEPARATION - distance);
             }
         }
 

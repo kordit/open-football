@@ -1,3 +1,4 @@
+use crate::transfers::pipeline::helpers::CountryPlayerLookup;
 use chrono::{Datelike, NaiveDate};
 use log::debug;
 
@@ -1033,6 +1034,7 @@ impl PipelineProcessor {
 
     pub fn process_scouting(
         country: &mut Country,
+        player_lookup: &CountryPlayerLookup,
         foreign_players: &[&PlayerSummary],
         date: NaiveDate,
     ) {
@@ -1047,7 +1049,10 @@ impl PipelineProcessor {
         // loop used to be a copy-paste of that function, doubling the work
         // that already runs once per country to build the shared foreign
         // pool. Now it runs once.
-        let all_players: Vec<PlayerSummary> = Self::collect_player_pool(&*country, date);
+        // Modified in this fork: borrow the country's summaries from the
+        // shared per-day index instead of building a second copy. Identical
+        // contents — the index is built by this same `collect_player_pool`.
+        let all_players: &[PlayerSummary] = player_lookup.summaries();
 
         // Partition both candidate pools by position group ONCE per country.
         // Every assignment scans only its own group's slice — the other
@@ -1061,7 +1066,7 @@ impl PipelineProcessor {
         // into the partition instead of being re-tested per assignment.
         let mut domestic_by_group: [Vec<&PlayerSummary>; PlayerFieldPositionGroup::COUNT] =
             Default::default();
-        for p in &all_players {
+        for p in all_players {
             domestic_by_group[p.position_group.index()].push(p);
         }
         let mut foreign_by_group: [Vec<&PlayerSummary>; PlayerFieldPositionGroup::COUNT] =

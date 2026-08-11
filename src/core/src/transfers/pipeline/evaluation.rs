@@ -519,9 +519,36 @@ impl PipelineProcessor {
         let mut evaluations: Vec<SquadEvaluation> = Vec::new();
 
         for club in &country.clubs {
+            // Modified in this fork: the exhausted-shortlist path is spread
+            // across the week instead of firing for every affected club on
+            // every day of the window.
+            //
+            // `should_evaluate` deliberately throttles this sweep to the
+            // window's first week and Mondays thereafter. Exhaustion bypassed
+            // that throttle completely — and Pass 2 then DROPS the exhausted
+            // shortlists (`retain(|s| !s.all_exhausted())`), so the club
+            // rebuilds them from scratch, exhausts them again, and qualifies
+            // again tomorrow. A club that can never fill its request therefore
+            // rescanned the whole market every single day of the window,
+            // forever, and always came up empty.
+            //
+            // This world guarantees a large population of exactly those
+            // clubs: squads are built only from imported real players
+            // (`--no-synthetic-players`), so the 22 clubs with no players and
+            // the 32 with fewer than eleven carry `FormationGap` /
+            // `SquadPadding` requests that nothing in the market can satisfy.
+            //
+            // Keying the retry on `(day + club id) % 7` keeps the escape
+            // valve — a club that burns through its list mid-week still gets
+            // a fresh look without waiting for Monday — while giving each
+            // club one such slot per week instead of seven. The offset by id
+            // spreads the load evenly across days rather than bunching every
+            // exhausted club onto the same one.
+            let exhausted_retry_due = Self::exhausted_retry_slot(date, club.id);
+
             let needs_eval = should_evaluate
                 || !club.transfer_plan.initialized
-                || Self::all_shortlists_exhausted(&club.transfer_plan);
+                || (exhausted_retry_due && Self::all_shortlists_exhausted(&club.transfer_plan));
 
             if !needs_eval {
                 continue;
@@ -627,6 +654,30 @@ impl PipelineProcessor {
                 }
             }
         }
+    }
+
+    /// Is today this club's weekly slot for retrying an exhausted search?
+    ///
+    /// Added in this fork. One slot per club per week, offset by club id so
+    /// the retries spread evenly across days instead of every affected club
+    /// landing on the same one. See the call site in `evaluate_squads` for
+    /// why the retry needs a cadence at all.
+    ///
+    /// The epoch is arbitrary and only has to be stable — it exists so the
+    /// slot advances by exactly one each day. `chrono`'s own day count is
+    /// crate-private in 0.4.45, hence the subtraction.
+    fn exhausted_retry_slot(date: NaiveDate, club_id: u32) -> bool {
+        const EPOCH: Option<NaiveDate> = NaiveDate::from_ymd_opt(2000, 1, 1);
+
+        let Some(epoch) = EPOCH else {
+            // Unreachable for a literal date, and a wrong answer here would
+            // only cost a retry slot — never correctness.
+            return true;
+        };
+
+        let days = (date - epoch).num_days();
+
+        (days.rem_euclid(7) as u32).wrapping_add(club_id) % 7 == 0
     }
 
     fn all_shortlists_exhausted(plan: &ClubTransferPlan) -> bool {

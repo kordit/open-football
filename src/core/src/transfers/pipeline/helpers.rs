@@ -1,5 +1,6 @@
 use chrono::{Datelike, NaiveDate};
 use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 
 use crate::club::player::events::transfer_social::TransferInterestSignal;
 use crate::club::player::language::LanguageProfile;
@@ -80,6 +81,44 @@ impl PipelineProcessor {
     /// old hard-coded June/January cadence starved every non-European
     /// calendar: an MLS-style Feb–Apr window got no evaluation ticks
     /// (and no staff recommendations) for its entire duration.
+    /// Added in this fork: is today THIS club's weekly slot?
+    ///
+    /// The market sweep is weekly, but running every club's sweep on the same
+    /// weekday puts the whole country's search into one day — measured, that
+    /// left Mondays at ~9.6 s while every other day of the window sat at
+    /// ~0.2 s. Giving each club its own weekday spreads the identical total
+    /// work across seven days without changing how often any single club
+    /// looks at the market.
+    ///
+    /// The offset is the club id, so the split is stable across days (a club
+    /// keeps its slot) and even across clubs (ids are dense).
+    pub(super) fn club_weekly_slot(date: NaiveDate, club_id: u32) -> bool {
+        const EPOCH: Option<NaiveDate> = NaiveDate::from_ymd_opt(2000, 1, 1);
+
+        let Some(epoch) = EPOCH else {
+            return true;
+        };
+
+        let days = (date - epoch).num_days();
+
+        (days.rem_euclid(7) as u32).wrapping_add(club_id) % 7 == 0
+    }
+
+    /// Added in this fork: is today a day for scanning the market for new
+    /// candidates?
+    ///
+    /// Same cadence as [`Self::should_evaluate_for`], and deliberately so —
+    /// the discovery passes (recommendations, scouting, shortlists, loan and
+    /// listing scans) exist to serve the squad needs that sweep produces. It
+    /// runs the window's first week and Mondays thereafter; running the far
+    /// more expensive search against those same unchanged needs on all seven
+    /// days repeated identical work six times for a market state that had not
+    /// moved. Acting on what has already been decided — negotiations,
+    /// approvals, scout reports coming back — stays daily.
+    pub fn market_sweep_due(country: &Country, date: NaiveDate) -> bool {
+        Self::should_evaluate_for(country, date)
+    }
+
     pub(super) fn should_evaluate_for(country: &Country, date: NaiveDate) -> bool {
         let w = TransferCalendar::for_country(&country.code, date);
         for (start, end) in [w.summer_window, w.winter_window] {
@@ -786,7 +825,7 @@ impl PipelineProcessor {
 /// back to the authoritative scan, so results are identical to the scan —
 /// the index is built at pass start and rosters don't move mid-pass, the
 /// fallback is a pure safety net.
-pub(super) struct CountryPlayerLookup {
+pub(crate) struct CountryPlayerLookup {
     club_idx_by_player: FxHashMap<u32, u32>,
     /// Per-club [`ClubGroupRanks`], indexed like `Country::clubs`.
     /// Pre-built for every club (one group sort per club — trivial next
@@ -795,10 +834,33 @@ pub(super) struct CountryPlayerLookup {
     /// Rosters and CA don't move inside a pass — same freshness
     /// contract as `club_idx_by_player`.
     ranks_by_club: Vec<ClubGroupRanks>,
+    /// Modified in this fork: the country's player summaries, built once.
+    ///
+    /// `find_summary` used to call `build_player_summary_ranked` on every
+    /// lookup — a market valuation, an ability recalculation, a potential
+    /// ceiling estimate and three `String` allocations, per candidate, per
+    /// consideration. Since a club's shortlist scan considers hundreds of
+    /// candidates and several clubs consider the same player, the same
+    /// summary was rebuilt dozens of times a day. Profiling a sweep day put
+    /// `build_player_summary` at the top of the trace by a wide margin.
+    ///
+    /// Building the whole country's summaries once and probing them turns
+    /// every one of those lookups into a hash hit. The values are identical:
+    /// `collect_player_pool` builds each summary through the same
+    /// valuation and ranking path, over the same rosters, on the same date.
+    summaries: Vec<PlayerSummary>,
+    /// `player_id → summary`, built through `build_player_summary_ranked`
+    /// so `find_summary` answers with exactly what it used to compute
+    /// on demand. See the note in `build` for why this is not the pool.
+    ranked_by_player: FxHashMap<u32, PlayerSummary>,
+    /// The date the summaries were built for. Kept so a caller asking about
+    /// a different date falls back to a fresh build rather than silently
+    /// reading yesterday's valuation.
+    built_for: NaiveDate,
 }
 
 impl CountryPlayerLookup {
-    pub(super) fn build(country: &Country) -> Self {
+    pub(crate) fn build(country: &Country, date: NaiveDate) -> Self {
         let mut club_idx_by_player = FxHashMap::default();
         let mut ranks_by_club = Vec::with_capacity(country.clubs.len());
         for (club_idx, club) in country.clubs.iter().enumerate() {
@@ -809,32 +871,92 @@ impl CountryPlayerLookup {
             }
             ranks_by_club.push(ClubGroupRanks::build(club));
         }
+
+        let summaries = PipelineProcessor::collect_player_pool(country, date);
+
+        // Built through `build_player_summary_ranked`, NOT reused from the
+        // pool above — the two builders disagree, and silently swapping one
+        // for the other changes results.
+        //
+        // `collect_player_pool` ranks a player who is not in the first-team
+        // depth chart as `group_size + 1`; `build_player_summary_ranked`
+        // ranks him as the main team's count for his position group, without
+        // the +1. `position_group_rank` feeds the plausibility assessment, so
+        // in a world of thin squads — where most players are outside the
+        // first-team chart — the difference moves real transfer decisions.
+        // Measured: feeding the pool's summaries to `find_summary` shifted a
+        // 28-day window from 1963 completed transfers to 1814.
+        //
+        // So each consumer keeps exactly the builder it always had. The point
+        // of this index is to stop rebuilding the SAME summary dozens of
+        // times a day, not to unify two models that were never the same.
+        let mut ranked_by_player: FxHashMap<u32, PlayerSummary> = FxHashMap::default();
+        for (club_idx, club) in country.clubs.iter().enumerate() {
+            let ranks = ranks_by_club.get(club_idx);
+            for team in &club.teams.teams {
+                for player in &team.players.players {
+                    ranked_by_player.insert(
+                        player.id,
+                        PipelineProcessor::build_player_summary_ranked(
+                            country, club, player, date, ranks,
+                        ),
+                    );
+                }
+            }
+        }
+
         CountryPlayerLookup {
             club_idx_by_player,
             ranks_by_club,
+            summaries,
+            ranked_by_player,
+            built_for: date,
         }
     }
 
-    pub(super) fn find_summary(
+    /// Every summary in the country, in `collect_player_pool` order.
+    ///
+    /// Lets a pass that needs the whole pool (scouting's domestic scan)
+    /// borrow this one instead of building its own copy.
+    pub(crate) fn summaries(&self) -> &[PlayerSummary] {
+        &self.summaries
+    }
+
+    /// A player's summary.
+    ///
+    /// Borrowed from the prebuilt pool on a hit. Misses fall through to the
+    /// authoritative build, which keeps the previous contract exactly:
+    /// `collect_player_pool` skips players out on loan, so they were never
+    /// in the pool and still resolve here.
+    pub(crate) fn find_summary(
         &self,
         country: &Country,
         player_id: u32,
         date: NaiveDate,
-    ) -> Option<PlayerSummary> {
+    ) -> Option<Cow<'_, PlayerSummary>> {
+        if date == self.built_for {
+            if let Some(summary) = self.ranked_by_player.get(&player_id) {
+                return Some(Cow::Borrowed(summary));
+            }
+        }
+
         if let Some(&club_idx) = self.club_idx_by_player.get(&player_id) {
             if let Some(club) = country.clubs.get(club_idx as usize) {
                 if let Some(player) = PipelineProcessor::find_player_in_club(club, player_id) {
-                    return Some(PipelineProcessor::build_player_summary_ranked(
-                        country,
-                        club,
-                        player,
-                        date,
-                        self.ranks_by_club.get(club_idx as usize),
+                    return Some(Cow::Owned(
+                        PipelineProcessor::build_player_summary_ranked(
+                            country,
+                            club,
+                            player,
+                            date,
+                            self.ranks_by_club.get(club_idx as usize),
+                        ),
                     ));
                 }
             }
         }
         PipelineProcessor::find_player_summary_in_country(country, player_id, date)
+            .map(Cow::Owned)
     }
 
     /// Indexed counterpart of [`PipelineProcessor::find_player_in_country`],

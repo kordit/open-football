@@ -16,6 +16,7 @@ use crate::club::player::transfer::FreeAgentBlockReason;
 use crate::simulator::SimulatorData;
 use crate::transfers::NegotiationStatus;
 use crate::transfers::TransferWindowManager;
+use crate::transfers::pipeline::helpers::CountryPlayerLookup;
 use crate::transfers::pipeline::{PipelineProcessor, PlayerSummary};
 use crate::{Country, PlayerStatusType};
 use chrono::NaiveDate;
@@ -259,19 +260,71 @@ impl CountryResult {
             debug!("Transfer window is OPEN - simulating pipeline-driven market activity");
             Self::list_players_from_pipeline(country, current_date, &mut summary);
             PipelineProcessor::evaluate_squads(country, current_date);
-            PipelineProcessor::generate_staff_recommendations(country, current_date);
-            PipelineProcessor::process_staff_recommendations(country, current_date);
+
+            // Modified in this fork: the DISCOVERY half of the market runs on
+            // the same cadence as the squad evaluation it serves, instead of
+            // every day of the window.
+            //
+            // `evaluate_squads` — the pass that decides what a club actually
+            // needs — is already throttled to the window's first week and
+            // Mondays thereafter. Everything below used to re-scan the whole
+            // market against those same unchanged needs on all seven days,
+            // repeating identical work six times over for a market state that
+            // had not moved. Measured on a full Polish pyramid, a quiet day
+            // inside the window cost 3.8-9.0 s against 0.03-0.23 s once the
+            // window shut — the search, not the football, was the cost of
+            // advancing a day.
+            //
+            // Acting on decisions already taken stays daily, so deals still
+            // progress at the same speed: negotiations resolve, scout reports
+            // land, the board approves, offers go in. Only the hunt for NEW
+            // candidates waits for the sweep.
+            let market_sweep = PipelineProcessor::market_sweep_due(country, current_date);
+
+            // Added in this fork: ONE market index for the whole day.
+            //
+            // Four passes below used to build their own — `CountryPlayerLookup`
+            // twice in recommendations, once in shortlists, and a full
+            // `collect_player_pool` inside scouting — each walking all of the
+            // country's players and throwing the result away at the end of the
+            // pass. On top of that, `find_summary` rebuilt a player's summary
+            // on every lookup, so the same valuation was recomputed for the
+            // same man dozens of times a day.
+            //
+            // Built here, once, and lent to every pass. Safe to share: the
+            // roster mutations inside this block are deferred to Phase C
+            // (`ops.deferred_transfers`), and `handle_free_agents` — the one
+            // pass that does move players immediately — has already run above.
+            let player_lookup = CountryPlayerLookup::build(country, current_date);
+
+            if market_sweep {
+                PipelineProcessor::generate_staff_recommendations(
+                    country,
+                    &player_lookup,
+                    current_date,
+                );
+            }
+            PipelineProcessor::process_staff_recommendations(country, &player_lookup, current_date);
             // Market-circulation / diagnosis: record interest in (or a
             // coherent block reason for) every available signed player,
             // right after the recommendation sweep so this tick's interest
             // is already visible.
-            PipelineProcessor::circulate_available_players(country, current_date);
-            PipelineProcessor::assign_scouts(country, current_date);
+            if market_sweep {
+                PipelineProcessor::circulate_available_players(country, current_date);
+                PipelineProcessor::assign_scouts(country, current_date);
+            }
             PipelineProcessor::assign_scouts_to_matches(country, current_date);
             PipelineProcessor::process_match_scouting(country, current_date);
-            PipelineProcessor::process_scouting(country, &foreign_players, current_date);
-            PipelineProcessor::run_recruitment_meetings(country, current_date);
-            PipelineProcessor::build_shortlists(country, current_date);
+            if market_sweep {
+                PipelineProcessor::process_scouting(
+                    country,
+                    &player_lookup,
+                    &foreign_players,
+                    current_date,
+                );
+                PipelineProcessor::run_recruitment_meetings(country, current_date);
+                PipelineProcessor::build_shortlists(country, &player_lookup, current_date);
+            }
             PipelineProcessor::evaluate_board_approvals(country, current_date);
             PipelineProcessor::initiate_negotiations(country, current_date);
             // Seller-side push runs BEFORE the borrower scan: a National+ parent
@@ -281,16 +334,22 @@ impl CountryResult {
             // scanning lower club snatching him first. The scan then fills
             // everything the broadcast didn't place — the bulk of loan volume —
             // so prospects are never starved of takers (no scan deferral).
-            PipelineProcessor::broadcast_listed_loans(country, current_date);
+            if market_sweep {
+                PipelineProcessor::broadcast_listed_loans(country, current_date);
             // Stale permanent listings get the same push, permanent
             // flavor: a player unsold past the grace weeks asks the club
             // to find him a move and the scouts offer him around, the
             // tier reach widening cumulatively downward until a buyer
             // responds. Paired with the year-unsold free-exit valve
             // below, no listing lingers for seasons.
-            PipelineProcessor::broadcast_listed_transfers(country, current_date);
-            PipelineProcessor::scan_loan_market(country, current_date);
-            PipelineProcessor::scan_foreign_loan_market(country, &foreign_players, current_date);
+                PipelineProcessor::broadcast_listed_transfers(country, current_date);
+                PipelineProcessor::scan_loan_market(country, current_date);
+                PipelineProcessor::scan_foreign_loan_market(
+                    country,
+                    &foreign_players,
+                    current_date,
+                );
+            }
         }
 
         // Escape valve for stranded listings: a player still unsold a full

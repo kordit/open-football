@@ -53,14 +53,26 @@ impl TransferRoutePolicy {
         if date < Self::ru_ua_block_from() {
             return false;
         }
-        let pair = (
-            from_country_code.to_ascii_lowercase(),
-            to_country_code.to_ascii_lowercase(),
-        );
-        matches!(
-            (pair.0.as_str(), pair.1.as_str()),
-            ("ru", "ua") | ("ua", "ru")
-        )
+
+        // Modified in this fork: the same comparison without allocating.
+        //
+        // This used to lowercase both codes into fresh `String`s on every
+        // call. The only pair it can ever match is RU/UA, but the shortlist
+        // and recommendation passes ask it about every club/candidate pair
+        // they consider — millions of times on a sweep day, each one a pair
+        // of heap allocations to answer "no". It showed up in the profile
+        // of a single simulated day.
+        //
+        // A domestic move can never be blocked, so the common case now exits
+        // before any comparison at all.
+        if from_country_code.eq_ignore_ascii_case(to_country_code) {
+            return false;
+        }
+
+        (from_country_code.eq_ignore_ascii_case("ru")
+            && to_country_code.eq_ignore_ascii_case("ua"))
+            || (from_country_code.eq_ignore_ascii_case("ua")
+                && to_country_code.eq_ignore_ascii_case("ru"))
     }
 
     /// True when clubs from this country are barred from UEFA

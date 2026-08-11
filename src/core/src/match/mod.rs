@@ -9,6 +9,10 @@ pub mod game;
 
 pub mod pool;
 
+/// Added in this fork: statistical stand-in used for every fixture the
+/// manager is not involved in.
+pub mod quick;
+
 pub mod result;
 pub mod rules;
 
@@ -19,6 +23,7 @@ pub use dispatch::*;
 pub use engine::*;
 pub use game::*;
 pub use pool::*;
+pub use quick::*;
 
 pub use result::*;
 pub use rules::*;

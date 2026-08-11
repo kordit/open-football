@@ -22,6 +22,7 @@ use crate::error::{ApiError, ApiResult};
 use crate::game::saves::{publish_world, write_slot};
 use axum::Json;
 use axum::extract::State;
+use core::club::team::tactics::plan::{AttackingPlan, DefensivePlan, TacticalPlan};
 use core::{MatchTacticType, SimulatorData, TacticSelectionReason, Tactics, TeamType};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -36,6 +37,12 @@ pub struct LineupRequest {
     /// Player ids to pin into the starting eleven. An empty list clears
     /// the manager's selection and hands the side back to the coach.
     pub starting: Vec<u32>,
+    /// Plan ofensywny, np. `counter`. Przychodzi ze skladem, bo jest taka
+    /// sama decyzja managera i ma ten sam cykl zycia — a w swiecie nie
+    /// mieszka, zeby zmiana modelu taktyki nie kasowala zapisanych karier.
+    pub attack: Option<String>,
+    /// Plan defensywny, np. `low_block`.
+    pub defence: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -70,6 +77,28 @@ pub async fn game_lineup_action(
     let formation = match request.formation.as_deref() {
         None => None,
         Some(raw) => Some(parse_formation(raw)?),
+    };
+
+    // Plan przychodzi ze skladem, bo swiat go nie pamieta miedzy wczytaniami
+    // — panel podaje go za kazdym razem, tak samo jak jedenastke.
+    let plan = match (request.attack.as_deref(), request.defence.as_deref()) {
+        (None, None) => None,
+        (attack, defence) => {
+            let attack = match attack {
+                Some(key) => AttackingPlan::from_key(key).ok_or_else(|| {
+                    ApiError::BadRequest(format!("unknown attacking plan: {key}"))
+                })?,
+                None => AttackingPlan::Balanced,
+            };
+            let defence = match defence {
+                Some(key) => DefensivePlan::from_key(key).ok_or_else(|| {
+                    ApiError::BadRequest(format!("unknown defensive plan: {key}"))
+                })?,
+                None => DefensivePlan::MidBlock,
+            };
+
+            Some(TacticalPlan::new(attack, defence))
+        }
     };
 
     let (slug, saves_dir) = {
@@ -117,15 +146,32 @@ pub async fn game_lineup_action(
 
         let (pinned, rejected) = apply_lineup(&mut world, club_id, &starting);
 
-        if let Some(tactic_type) = formation {
+        if formation.is_some() || plan.is_some() {
             if let Some(team) = world.team_mut(team_id) {
-                team.tactics = Some(Tactics {
-                    tactic_type,
-                    selected_reason: TacticSelectionReason::CoachPreference,
-                    // The manager asked for this shape; the selector must
-                    // not weigh it against alternatives.
-                    formation_strength: 1.0,
-                });
+                let current = team.tactics.as_ref();
+
+                // Nowy plan zastepuje poprzedni; brak planu w zadaniu zostawia
+                // ten, ktory juz stoi. Zmiana ustawienia nie kasuje planu i
+                // zmiana planu nie kasuje ustawienia.
+                let (instructions, preset) = match plan {
+                    Some(chosen) => (Some(chosen.instructions()), Some(chosen)),
+                    None => current.map(|t| (t.instructions, t.preset)).unwrap_or((None, None)),
+                };
+
+                let shape = formation
+                    .or_else(|| current.map(|t| t.tactic_type))
+                    .unwrap_or(MatchTacticType::T442);
+
+                team.tactics = Some(
+                    Tactics::with_reason(
+                        shape,
+                        TacticSelectionReason::CoachPreference,
+                        // The manager asked for this shape; the selector
+                        // must not weigh it against alternatives.
+                        1.0,
+                    )
+                    .with_instructions(instructions, preset),
+                );
             }
         }
 
@@ -188,7 +234,7 @@ fn apply_lineup(world: &mut SimulatorData, club_id: u32, starting: &[u32]) -> (V
     (pinned, rejected)
 }
 
-fn parse_formation(raw: &str) -> ApiResult<MatchTacticType> {
+pub(crate) fn parse_formation(raw: &str) -> ApiResult<MatchTacticType> {
     match raw {
         "T442" => Ok(MatchTacticType::T442),
         "T433" => Ok(MatchTacticType::T433),
@@ -210,7 +256,7 @@ fn parse_formation(raw: &str) -> ApiResult<MatchTacticType> {
     }
 }
 
-fn formation_name(tactic: MatchTacticType) -> &'static str {
+pub(crate) fn formation_name(tactic: MatchTacticType) -> &'static str {
     match tactic {
         MatchTacticType::T442 => "T442",
         MatchTacticType::T433 => "T433",

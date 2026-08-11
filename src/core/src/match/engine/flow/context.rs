@@ -11,6 +11,7 @@ use crate::r#match::engine::result::{
 use crate::r#match::engine::set_pieces::SetPieceHistory;
 use crate::r#match::rules::MatchRules;
 use chrono::{NaiveDate, Utc};
+use std::cell::RefCell;
 
 /// Full match-construction inputs. Replaces the loose
 /// `play_seeded(.., seed)` signature for callers that need to inject
@@ -30,6 +31,16 @@ pub struct MatchEngineConfig {
     pub is_friendly: bool,
     pub is_knockout: bool,
     pub match_recordings: bool,
+    /// Added in this fork: record passes, events and per-player states even
+    /// when `MatchRuntime::events_mode()` is off.
+    ///
+    /// The global flag is an archiving decision — how much of every match in
+    /// the world gets written to disk. A live match needs the same data for a
+    /// different reason: passes are the lines the 2D pitch draws, and player
+    /// states are what tells a running dot from a tackling one. One match
+    /// worth of extra tracking is not the cost the global flag exists to
+    /// control.
+    pub force_event_tracking: bool,
 }
 
 impl Default for MatchEngineConfig {
@@ -42,6 +53,7 @@ impl Default for MatchEngineConfig {
             is_friendly: false,
             is_knockout: false,
             match_recordings: false,
+            force_event_tracking: false,
         }
     }
 }
@@ -64,6 +76,47 @@ use nalgebra::Vector3;
 
 const MATCH_TIME_INCREMENT_MS: u64 = 10;
 const MAX_STOPPAGE_PER_PERIOD_MS: u64 = 15 * 60 * 1000;
+
+/// One line of the match ticker.
+///
+/// Deliberately a closed, small set. The engine's raw event stream carries
+/// every collision and every request to receive — hundreds of thousands per
+/// match — and a ticker built from it would be unreadable. These are the
+/// moments a person watching would name out loud.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchIncident {
+    Offside,
+    Corner,
+    Shot,
+    ShotOnTarget,
+    Save,
+    Penalty,
+}
+
+impl MatchIncident {
+    /// Stable wire name. Kept separate from `Debug` so renaming a variant
+    /// cannot silently change what the panel receives.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MatchIncident::Offside => "offside",
+            MatchIncident::Corner => "corner",
+            MatchIncident::Shot => "shot",
+            MatchIncident::ShotOnTarget => "shot_on_target",
+            MatchIncident::Save => "save",
+            MatchIncident::Penalty => "penalty",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MatchIncidentRecord {
+    pub kind: MatchIncident,
+    /// Milliseconds on the match clock, the same scale everything else uses.
+    pub at_ms: u64,
+    /// Who it happened to or because of. Zero when nobody owns it.
+    pub player_id: u32,
+    pub team_id: u32,
+}
 
 pub struct SubstitutionRecord {
     pub team_id: u32,
@@ -93,6 +146,22 @@ pub struct MatchContext {
 
     // Track cumulative time across all match states
     pub total_match_time: u64,
+
+    /// Added in this fork: what happened, in order, for the match ticker.
+    ///
+    /// Goals, fouls and cards were already reconstructable — every one is a
+    /// timestamped entry in some player's `statistics.items`. The rest of what
+    /// a watcher needs to follow a match was not: offsides are a bare counter,
+    /// and corners, shots and saves leave no dated trace at all. Without them
+    /// the live screen can show a scoreline and nothing that explains it.
+    ///
+    /// `RefCell` because the sites that know these things — ball physics,
+    /// the shot handler, the save credit path — hold `&MatchContext`, not
+    /// `&mut`. This is the same trade `MatchRng` already makes one field
+    /// below, for the same reason: a match runs on one thread, and threading
+    /// `&mut` through the tick for a append-only log would reshape half the
+    /// engine's signatures to record a line of commentary.
+    pub incidents: RefCell<Vec<MatchIncidentRecord>>,
 
     pub substitutions: Vec<SubstitutionRecord>,
     pub max_substitutions_per_team: usize,
@@ -339,6 +408,7 @@ impl MatchContext {
             field_away_team_id: field.away_team_id,
             logging_enabled: false,
             total_match_time: 0,
+            incidents: RefCell::new(Vec::new()),
             substitutions: Vec::new(),
             // Total substitution budget is sourced from the competition
             // rule set. Friendlies pass `usize::MAX` to waive the cap.
@@ -452,6 +522,37 @@ impl MatchContext {
     pub fn add_time(&mut self, time: u64) {
         self.time.increment(time);
         self.total_match_time += time;
+    }
+
+    /// Note something worth telling the watcher about.
+    ///
+    /// Takes `&self` on purpose — the call sites are inside ball physics and
+    /// event handlers that only ever hold a shared context. Repeats are the
+    /// caller's problem: this appends, it does not deduplicate, because two
+    /// corners in the same second are a real thing and a ticker that hides
+    /// the second one is lying about the match.
+    pub fn note_incident(&self, kind: MatchIncident, player_id: u32, team_id: u32) {
+        // A borrow that is already taken means a caller is iterating the log
+        // while recording into it. Dropping the line is strictly better than
+        // panicking mid-match over a piece of commentary.
+        if let Ok(mut log) = self.incidents.try_borrow_mut() {
+            log.push(MatchIncidentRecord {
+                kind,
+                at_ms: self.total_match_time,
+                player_id,
+                team_id,
+            });
+        }
+    }
+
+    /// Incidents stamped inside `[since_ms, until_ms)`.
+    pub fn incidents_between(&self, since_ms: u64, until_ms: u64) -> Vec<MatchIncidentRecord> {
+        self.incidents
+            .borrow()
+            .iter()
+            .filter(|i| i.at_ms >= since_ms && i.at_ms < until_ms)
+            .copied()
+            .collect()
     }
 
     pub fn record_stoppage_time(&mut self, time: u64) {

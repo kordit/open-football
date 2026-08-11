@@ -433,7 +433,11 @@ impl PipelineProcessor {
         }
     }
 
-    pub fn generate_staff_recommendations(country: &mut Country, date: NaiveDate) {
+    pub fn generate_staff_recommendations(
+        country: &mut Country,
+        player_lookup: &CountryPlayerLookup,
+        date: NaiveDate,
+    ) {
         // Only runs weekly (same schedule as should_evaluate)
         if !Self::should_evaluate_for(country, date) {
             return;
@@ -441,7 +445,6 @@ impl PipelineProcessor {
 
         // One country walk so per-candidate plausibility re-checks below
         // resolve summaries via hash probe instead of a country scan.
-        let player_lookup = CountryPlayerLookup::build(country);
 
         let is_january = Self::is_mid_season_window_for(country, date);
         let price_level = country.settings.pricing.price_level;
@@ -1669,7 +1672,11 @@ impl PipelineProcessor {
         }
     }
 
-    pub fn process_staff_recommendations(country: &mut Country, date: NaiveDate) {
+    pub fn process_staff_recommendations(
+        country: &mut Country,
+        player_lookup: &CountryPlayerLookup,
+        date: NaiveDate,
+    ) {
         // Only runs weekly (same schedule as should_evaluate)
         if !Self::should_evaluate_for(country, date) {
             return;
@@ -1697,7 +1704,6 @@ impl PipelineProcessor {
         // Indexed player/summary resolution for the per-recommendation
         // re-checks below (actions apply after the loop, so the index
         // stays valid for the whole pass).
-        let player_lookup = CountryPlayerLookup::build(country);
 
         for club in &country.clubs {
             let plan = &club.transfer_plan;

@@ -47,6 +47,7 @@
 //! Per project convention this is a method on [`PipelineProcessor`]; every
 //! type is reached through a `use` at the file header.
 
+use crate::transfers::pipeline::helpers::CountryPlayerLookup;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
@@ -817,7 +818,8 @@ mod breakout_watch_tests {
         PipelineProcessor::scan_breakout_form(&mut country, &pool, Fx::monday());
         assert!(country.clubs[0].transfer_plan.transfer_requests.is_empty());
 
-        PipelineProcessor::process_staff_recommendations(&mut country, Fx::monday());
+        let lookup = CountryPlayerLookup::build(&country, Fx::monday());
+        PipelineProcessor::process_staff_recommendations(&mut country, &lookup, Fx::monday());
 
         let plan = &country.clubs[0].transfer_plan;
         let request = plan

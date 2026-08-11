@@ -534,6 +534,49 @@ impl SquadSelector {
         ctx: &SelectionContext,
     ) -> PlayerSelectionResult {
         let tactics = team.tactics();
+
+        Self::select_for_rotation_using(team, staff, reserve_players, ctx, tactics.borrow())
+    }
+
+    /// Modified from upstream: pick an XI for a plan the club has not
+    /// adopted.
+    ///
+    /// Every other selection path reads `team.tactics()`, which is right
+    /// for a matchday — the club plays what its coach set. The demo screen
+    /// is the exception: the manager picks a plan on the tactics board and
+    /// expects the eleven to be built for *that*, without the choice
+    /// leaking into the career. Since the world is only ever read there,
+    /// the tactic cannot be written to the team first; it has to be passed.
+    ///
+    /// This is also where "possession needs passers" stops being a slogan.
+    /// The slot scorer weighs `tactical_style_bonus` against the tactic it
+    /// is handed, so a possession plan and a counter plan genuinely pick
+    /// different players out of the same squad.
+    pub fn select_for_rotation_with_tactics(
+        team: &Team,
+        staff: &Staff,
+        tactics: &Tactics,
+    ) -> PlayerSelectionResult {
+        Self::select_for_rotation_using(
+            team,
+            staff,
+            &[],
+            &SelectionContext {
+                is_friendly: true,
+                match_importance: 0.1,
+                ..SelectionContext::default()
+            },
+            tactics,
+        )
+    }
+
+    fn select_for_rotation_using(
+        team: &Team,
+        staff: &Staff,
+        reserve_players: &[&Player],
+        ctx: &SelectionContext,
+        tactics: &Tactics,
+    ) -> PlayerSelectionResult {
         let is_main_team = team.team_type == TeamType::Main;
 
         let team_player_count = team.players.players().len();
@@ -623,7 +666,7 @@ impl SquadSelector {
         // inflate the season the deficits are measured against.
         let development = DevelopmentSelection {
             team_id: team.id,
-            tactics: tactics.borrow(),
+            tactics: tactics,
             date: ctx.date,
             team_type: team.team_type,
             stakes: DevelopmentStakes::from_context(ctx.match_importance, ctx.is_friendly),
@@ -654,7 +697,7 @@ impl SquadSelector {
                 if substitutes.len() >= DEFAULT_BENCH_SIZE {
                     break;
                 }
-                let pos = best_tactical_position(player, tactics.borrow());
+                let pos = best_tactical_position(player, tactics);
                 substitutes.push(MatchPlayer::from_player(
                     team.id,
                     player,

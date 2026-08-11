@@ -29,6 +29,7 @@ use crate::r#match::engine::substitution::substitutions::{
     SubstitutionError, execute_manual_substitution,
 };
 use crate::r#match::game::Match;
+use crate::r#match::player::statistics::MatchStatisticType;
 use crate::r#match::{MatchResult, PlayMatchStateResult};
 
 type Engine = FootballEngine<840, 545>;
@@ -103,6 +104,31 @@ pub struct LivePlayer {
     pub is_sent_off: bool,
     pub goals: u16,
     pub minutes: u16,
+    /// Which half of the pitch this player defends *right now*.
+    ///
+    /// Not a property of the team: the sides swap at half time
+    /// (`MatchField::swap_squads`), and a 2D view that assumes home-on-the-left
+    /// draws the second half back to front. `None` for the bench.
+    pub side: Option<PlayerSide>,
+    /// The position they are playing today, engine-side — which is the one the
+    /// pitch should label them with, not whatever the database calls their
+    /// natural role.
+    pub position: &'static str,
+}
+
+/// Something the referee wrote down, and when.
+///
+/// `kind` is one of `goal`, `own_goal`, `assist`, `yellow_card`, `red_card`,
+/// `foul` — deliberately a small closed set. The engine's raw event stream is
+/// far richer (every collision, every request to receive) and far too dense to
+/// put in front of anybody: what a match ticker shows is the incidents, not
+/// the physics.
+#[derive(Debug, Clone)]
+pub struct LiveIncident {
+    pub at_ms: u64,
+    pub kind: &'static str,
+    pub player_id: u32,
+    pub team_id: u32,
 }
 
 /// Everything the panel draws between two steps.
@@ -171,13 +197,22 @@ impl LiveMatch {
         let away_team_id = m.away_squad.team_id;
         let is_friendly = m.is_friendly;
 
-        // Same recording rule as `Match::play`: a fixture the manager is
-        // watching is exactly the fixture worth having a replay of.
-        let match_recordings = (MatchRuntime::recordings_mode() || m.record) && !is_friendly;
-
+        // A live match always records, whatever the global flag says.
+        //
+        // This is stronger than `Match::play`'s rule (`recordings_mode() ||
+        // record`, and never for friendlies) and it has to be: the recording
+        // is not an archive here, it is the picture on the screen. The 2D
+        // pitch reads it window by window as the match is played, so a live
+        // match with recording off is a live match with nothing to watch — a
+        // scoreline and a list of names, which is what this replaced.
+        //
+        // `force_event_tracking` follows for the same reason: passes are the
+        // lines the pitch draws and player states are what tells a running dot
+        // from a tackling one.
         let config = MatchEngineConfig {
             seed: m.seed,
-            match_recordings,
+            match_recordings: true,
+            force_event_tracking: true,
             is_friendly,
             is_knockout: m.is_knockout,
             ..Default::default()
@@ -210,6 +245,89 @@ impl LiveMatch {
 
     pub fn clock_ms(&self) -> u64 {
         self.context.total_match_time
+    }
+
+    /// The recording as it stands mid-match.
+    ///
+    /// Everything the 2D pitch draws comes from here — positions, passes,
+    /// events, player states. It grows as the match is played, so a caller
+    /// slices it with [`ResultMatchPositionData::window`] against the same
+    /// cursor it uses for `advance` rather than reading it whole.
+    pub fn recording(&self) -> &ResultMatchPositionData {
+        &self.match_data
+    }
+
+    /// What the referee's notebook gained between two points on the clock.
+    ///
+    /// Read out of the players' own match statistics rather than collected as
+    /// it happens, and that is on purpose: every incident here is already
+    /// stamped with `context.total_match_time` at the moment it is awarded
+    /// (`add_goal`, `add_foul`, `add_yellow_card`, `add_red_card`), so the
+    /// window can be reconstructed exactly. The alternative — threading a
+    /// recorder through the goal handler, the foul resolver and the card
+    /// decision — would touch a dozen upstream call sites to learn what those
+    /// call sites already wrote down.
+    ///
+    /// Cost is a walk of ~40 players' item lists, which run to a handful of
+    /// entries each even at full time.
+    pub fn incidents(&self, since_ms: u64, until_ms: u64) -> Vec<LiveIncident> {
+        let mut found: Vec<LiveIncident> = self
+            .field
+            .players
+            .iter()
+            .chain(self.field.substitutes.iter())
+            .flat_map(|p| {
+                p.statistics
+                    .items
+                    .iter()
+                    .filter(move |item| {
+                        item.match_second >= since_ms && item.match_second < until_ms
+                    })
+                    .map(move |item| LiveIncident {
+                        at_ms: item.match_second,
+                        kind: match item.stat_type {
+                            MatchStatisticType::Goal if item.is_auto_goal => "own_goal",
+                            MatchStatisticType::Goal => "goal",
+                            MatchStatisticType::Assist => "assist",
+                            MatchStatisticType::YellowCard => "yellow_card",
+                            MatchStatisticType::RedCard => "red_card",
+                            MatchStatisticType::Foul => "foul",
+                        },
+                        player_id: p.id,
+                        team_id: p.team_id,
+                    })
+            })
+            .collect();
+
+        // Everything the referee's book does not hold: offsides, corners,
+        // shots, saves. Those are stamped as they happen by the engine sites
+        // that decide them (`MatchContext::note_incident`), because unlike a
+        // goal or a card they leave no dated trace in anybody's statistics.
+        found.extend(
+            self.context
+                .incidents_between(since_ms, until_ms)
+                .into_iter()
+                .map(|i| LiveIncident {
+                    at_ms: i.at_ms,
+                    kind: i.kind.as_str(),
+                    player_id: i.player_id,
+                    team_id: i.team_id,
+                }),
+        );
+
+        // Substitutions were already recorded with their minute — they just
+        // had nowhere to be read from.
+        found.extend(self.context.substitutions.iter().filter_map(|s| {
+            (s.match_time >= since_ms && s.match_time < until_ms).then_some(LiveIncident {
+                at_ms: s.match_time,
+                kind: "substitution",
+                player_id: s.player_in_id,
+                team_id: s.team_id,
+            })
+        }));
+
+        found.sort_by_key(|i| i.at_ms);
+        found
     }
 
     pub fn human_team_id(&self) -> u32 {
@@ -345,6 +463,8 @@ impl LiveMatch {
             is_sent_off: p.is_sent_off,
             goals: p.statistics.goals_count(),
             minutes: p.minutes_played_at(clock_ms),
+            side: p.side,
+            position: p.tactical_position.current_position.get_short_name(),
         };
 
         let coach = self.context.coach_for_team(self.human_team_id);

@@ -170,12 +170,50 @@ impl FootballSimulator {
         // `par_iter_mut`. Different fields ⇒ split borrow ⇒ safe.
         let world_date = data.date;
         let pool_date = data.date.date();
-        let world_pool: Vec<PlayerSummary> = data
+        // Modified in this fork: the pool is skipped entirely in worlds
+        // where it cannot produce a single candidate.
+        //
+        // `simulate_transfer_market_local` is the only reader, and the
+        // first thing it does is `world_pool.iter().filter(|s|
+        // s.country_id != country_id)` — the pool exists to let a club
+        // scout ACROSS a border. `PlayerSummary::country_id` is the
+        // country the club plays in (see `collect_player_pool`), not the
+        // player's nationality, so in a world whose clubs all sit in one
+        // country that filter is empty for every country, every day.
+        //
+        // Polish Football Manager is exactly that world: 218 countries in
+        // the reference data, 912 clubs, all of them in the Polish
+        // pyramid. Building the pool anyway cost a `PlayerSummary` per
+        // player per day — 25 273 market valuations, ability
+        // recalculations and potential-ceiling estimates, plus three
+        // `String` allocations each — and then threw the lot away. It was
+        // the single largest cost of advancing a day: profiling a day with
+        // no football on it at all, `build_player_summary` and the name
+        // formatting under it dominated the trace, and such days measured
+        // 5-20 s.
+        //
+        // The guard is a provable no-op, not a heuristic: with fewer than
+        // two club-bearing countries the filter's output is empty whatever
+        // the pool contains. Re-enable it for a multi-country world by
+        // doing nothing — the check notices on its own.
+        let cross_border_market = data
             .continents
-            .par_iter()
-            .flat_map(|cont| cont.countries.par_iter())
-            .flat_map_iter(|c| PipelineProcessor::collect_player_pool(c, pool_date))
-            .collect();
+            .iter()
+            .flat_map(|cont| cont.countries.iter())
+            .filter(|country| !country.clubs.is_empty())
+            .take(2)
+            .count()
+            > 1;
+
+        let world_pool: Vec<PlayerSummary> = if cross_border_market {
+            data.continents
+                .par_iter()
+                .flat_map(|cont| cont.countries.par_iter())
+                .flat_map_iter(|c| PipelineProcessor::collect_player_pool(c, pool_date))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let global_fa_snapshot: Vec<GlobalFreeAgentSummary> =
             snapshot_global_free_agents(data, pool_date);
         let world_country_info = &data.country_info;
