@@ -101,8 +101,23 @@ pub struct TeamInstructions {
 }
 
 impl Default for TeamInstructions {
+    /// Every dial in the middle: the bus then passes each computed value
+    /// through untouched, because `steer()` toward 0.5 from 0.5 is a no-op
+    /// only when the caller had nothing to say. This is what a side with
+    /// no plan set looks like.
     fn default() -> Self {
-        TeamInstructions::default()
+        TeamInstructions {
+            tempo: 0.5,
+            directness: 0.5,
+            width: 0.5,
+            risk: 0.5,
+            support: 0.5,
+            press: 0.5,
+            line_height: 0.5,
+            compactness: 0.5,
+            counter_press: 0.5,
+            aggression: 0.5,
+        }
     }
 }
 
