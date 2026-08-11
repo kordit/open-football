@@ -6,7 +6,7 @@
 use super::Ball;
 use crate::PlayerFieldPositionGroup;
 use crate::r#match::ball::events::BallEvent;
-use crate::r#match::engine::goal::GOAL_WIDTH;
+use crate::r#match::engine::goal::{GOAL_HEIGHT, GOAL_WIDTH};
 #[cfg(feature = "match-logs")]
 use crate::r#match::engine::player::events::players::save_accounting_stats;
 use crate::r#match::events::EventCollection;
@@ -47,20 +47,162 @@ pub mod block_diag {
     /// The roll succeeded.
     pub static FIRED: AtomicU64 = AtomicU64::new(0);
 
-    pub fn reset() {
-        for c in [&SHOTS_SEEN, &TOO_HIGH, &CANDIDATES, &FIRED] {
-            c.store(0, Ordering::Relaxed);
-        }
-    }
+    // ── Per-opponent rejection lanes ────────────────────────────────
+    //
+    // `CANDIDATES` alone says "no defender in the lane" without saying
+    // WHY, and the three possible causes want opposite fixes: defenders
+    // standing behind the ball is a positioning problem, defenders past
+    // the lookahead is a window problem, defenders goal-side but wide is
+    // a corridor-width problem. These split the rejection so the next
+    // reader doesn't have to re-derive it.
+    /// Opposition outfielders examined across all shot-ticks.
+    pub static OPP_SEEN: AtomicU64 = AtomicU64::new(0);
+    /// Rejected: level with or behind the ball along the shot line.
+    pub static BEHIND_BALL: AtomicU64 = AtomicU64::new(0);
+    /// Rejected: goal-side but further than `BLOCK_LOOKAHEAD` ahead.
+    pub static BEYOND_LOOKAHEAD: AtomicU64 = AtomicU64::new(0);
+    /// Rejected: inside the lookahead window but wider than the corridor.
+    pub static OUTSIDE_CORRIDOR: AtomicU64 = AtomicU64::new(0);
+    /// Sum of perpendicular distances for opponents inside the lookahead
+    /// window, x100 — divided by `IN_WINDOW` it gives the mean miss
+    /// distance, which is what says whether the corridor is merely too
+    /// narrow or the defenders are nowhere near the line.
+    pub static PERP_SUM_X100: AtomicU64 = AtomicU64::new(0);
+    /// Opponents inside the lookahead window (the `PERP_SUM_X100` denom).
+    pub static IN_WINDOW: AtomicU64 = AtomicU64::new(0);
 
-    /// `(shots_seen, too_high, candidates, fired)`
-    pub fn snapshot() -> (u64, u64, u64, u64) {
-        (
-            SHOTS_SEEN.load(Ordering::Relaxed),
-            TOO_HIGH.load(Ordering::Relaxed),
-            CANDIDATES.load(Ordering::Relaxed),
-            FIRED.load(Ordering::Relaxed),
-        )
+    // ── At the moment of the strike ─────────────────────────────────
+    //
+    // The per-tick counters above sample the whole flight, which biases
+    // "behind the ball" upward: a defender the ball has already passed
+    // counts as behind on every remaining tick. These sample ONCE, when
+    // the shot is struck, and answer the football question directly —
+    // was anybody between the shooter and the goal at all?
+    /// Shots struck with a projected target (one sample each).
+    pub static SHOTS_STRUCK: AtomicU64 = AtomicU64::new(0);
+    /// Opposition outfielders goal-side of the ball at the strike,
+    /// summed over `SHOTS_STRUCK`.
+    pub static GOALSIDE_AT_STRIKE: AtomicU64 = AtomicU64::new(0);
+    /// Of those, the ones also within 30u of the ball's line to goal —
+    /// i.e. actually in a position to get a body in the way.
+    pub static GOALSIDE_NEAR_LINE: AtomicU64 = AtomicU64::new(0);
+
+    /// Distance from the ball to the goal it is aimed at, x100, summed
+    /// over `SHOTS_STRUCK`. Says where shots are actually taken from.
+    pub static SHOT_RANGE_X100: AtomicU64 = AtomicU64::new(0);
+    /// Mean distance of the DEFENDING outfielders from their own goal
+    /// line at the strike, x100, summed over `SHOTS_STRUCK`. Read against
+    /// `SHOT_RANGE_X100`: if the defenders sit further out than the ball,
+    /// the line never dropped; if they sit closer but nobody is in the
+    /// lane, the line dropped and scattered.
+    pub static DEF_DEPTH_X100: AtomicU64 = AtomicU64::new(0);
+
+    /// Histogram of which `DefenderState` the defending back line is in
+    /// at the moment a shot is struck, indexed by the enum's discriminant
+    /// (21 variants). Without this the depth number says the line did not
+    /// drop but not WHY — and the answer decides whether the fix belongs
+    /// in a state's steering target or in the state selection above it.
+    pub static DEF_STATE_AT_STRIKE: [AtomicU64; 21] = [const { AtomicU64::new(0) }; 21];
+
+    /// Diagnostic accessors. Grouped on a struct so the module exposes
+    /// no free functions — the statics stay module-level because Rust
+    /// has no associated statics.
+    pub struct BlockDiag;
+
+    impl BlockDiag {
+        /// Book one back-line defender's state at a strike.
+        pub fn note_defender_state(state_id: usize) {
+            if let Some(c) = DEF_STATE_AT_STRIKE.get(state_id) {
+                c.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        /// Per-state counts, in discriminant order.
+        pub fn defender_state_snapshot() -> [u64; 21] {
+            std::array::from_fn(|i| DEF_STATE_AT_STRIKE[i].load(Ordering::Relaxed))
+        }
+
+        /// Sample the defensive picture at the moment a shot is struck.
+        /// `goalside` / `near_line` are counts for this one strike;
+        /// `shot_range` / `def_depth` are distances to the defended goal.
+        pub fn note_strike(goalside: u64, near_line: u64, shot_range: f32, def_depth: f32) {
+            SHOTS_STRUCK.fetch_add(1, Ordering::Relaxed);
+            GOALSIDE_AT_STRIKE.fetch_add(goalside, Ordering::Relaxed);
+            GOALSIDE_NEAR_LINE.fetch_add(near_line, Ordering::Relaxed);
+            SHOT_RANGE_X100.fetch_add((shot_range.max(0.0) * 100.0) as u64, Ordering::Relaxed);
+            DEF_DEPTH_X100.fetch_add((def_depth.max(0.0) * 100.0) as u64, Ordering::Relaxed);
+        }
+
+        /// `(shots_struck, goalside_per_shot, near_line_per_shot,
+        ///   mean_shot_range, mean_defender_depth)`
+        pub fn strike_snapshot() -> (u64, f32, f32, f32, f32) {
+            let n = SHOTS_STRUCK.load(Ordering::Relaxed);
+            if n == 0 {
+                return (0, 0.0, 0.0, 0.0, 0.0);
+            }
+            let per = |c: &AtomicU64| c.load(Ordering::Relaxed) as f32 / 100.0 / n as f32;
+            (
+                n,
+                GOALSIDE_AT_STRIKE.load(Ordering::Relaxed) as f32 / n as f32,
+                GOALSIDE_NEAR_LINE.load(Ordering::Relaxed) as f32 / n as f32,
+                per(&SHOT_RANGE_X100),
+                per(&DEF_DEPTH_X100),
+            )
+        }
+
+            pub fn reset() {
+            for c in [
+                &SHOTS_SEEN,
+                &TOO_HIGH,
+                &CANDIDATES,
+                &FIRED,
+                &OPP_SEEN,
+                &BEHIND_BALL,
+                &BEYOND_LOOKAHEAD,
+                &OUTSIDE_CORRIDOR,
+                &PERP_SUM_X100,
+                &IN_WINDOW,
+                &SHOTS_STRUCK,
+                &GOALSIDE_AT_STRIKE,
+                &GOALSIDE_NEAR_LINE,
+                &SHOT_RANGE_X100,
+                &DEF_DEPTH_X100,
+            ] {
+                c.store(0, Ordering::Relaxed);
+            }
+            for c in &DEF_STATE_AT_STRIKE {
+                c.store(0, Ordering::Relaxed);
+            }
+        }
+
+        /// `(shots_seen, too_high, candidates, fired)`
+        pub fn snapshot() -> (u64, u64, u64, u64) {
+            (
+                SHOTS_SEEN.load(Ordering::Relaxed),
+                TOO_HIGH.load(Ordering::Relaxed),
+                CANDIDATES.load(Ordering::Relaxed),
+                FIRED.load(Ordering::Relaxed),
+            )
+        }
+
+        /// `(opp_seen, behind_ball, beyond_lookahead, outside_corridor,
+        ///   in_window, mean_perp)`
+        pub fn lane_snapshot() -> (u64, u64, u64, u64, u64, f32) {
+            let in_window = IN_WINDOW.load(Ordering::Relaxed);
+            let mean_perp = if in_window == 0 {
+                0.0
+            } else {
+                PERP_SUM_X100.load(Ordering::Relaxed) as f32 / 100.0 / in_window as f32
+            };
+            (
+                OPP_SEEN.load(Ordering::Relaxed),
+                BEHIND_BALL.load(Ordering::Relaxed),
+                BEYOND_LOOKAHEAD.load(Ordering::Relaxed),
+                OUTSIDE_CORRIDOR.load(Ordering::Relaxed),
+                in_window,
+                mean_perp,
+            )
+        }
     }
 }
 
@@ -84,6 +226,15 @@ impl SaveModel {
     /// silently moved the population save rate down and pushed
     /// goals/match from ~2.4 to ~2.8. The floor now carries the level
     /// that the skill term used to supply.
+    ///
+    /// NOT the lever for population goals/match, despite carrying the
+    /// population level for save RATE. Measured 2026-08-08: dropping it
+    /// 0.57 → 0.54 moved neither goals (2.28 → 2.22, inside noise) nor
+    /// save% (68.5% → 68.9%). Roughly half of all credited saves come
+    /// from the GK state machine rather than this physics roll (`SAVE
+    /// PIPELINE`: 725 of 1482), so a 4% relative cut here is ~2%
+    /// overall — below the run-to-run floor. Reach for shot volume or
+    /// the willingness roll instead.
     const SKILL_FLOOR: f32 = 0.57;
     /// Width of the keeper-quality band. Mean skill (0.5) lands on
     /// 0.68 — the multiplier the ~67% population save rate is
@@ -188,6 +339,80 @@ impl SaveModel {
     pub(crate) fn centred_save_probability(skill: f32) -> f32 {
         Self::save_probability(0.0, 0.0, skill, Self::NEUTRAL_THREAT, 0.0)
     }
+
+    // ── Post-shot expectation (xGoT) ────────────────────────────────
+    //
+    // What a *league-average* keeper would have conceded from this exact
+    // strike. The rating model needs it to separate a keeper from the
+    // defence in front of him: `goals_prevented` is only an honest
+    // measure of shot-stopping if the expectation it subtracts knows
+    // whether the shots were corner-bound rockets or tame efforts down
+    // the middle. Every input below is a property of the STRIKE — where
+    // it is going, how fast, how high — and none of them is a property
+    // of the keeper, which is what makes the resulting expectation
+    // something he can be measured against rather than something he
+    // moves by playing well.
+
+    /// Reach of a population-mean keeper, in game units. The live model
+    /// is `20 + agility01·8 + reflexes01·4` (see [`Ball::try_save_shot`]);
+    /// at the mid-band agility/reflexes generated squads carry (~0.55
+    /// normalised) that lands on ~26u. Fixed rather than read from the
+    /// keeper on purpose — a keeper with elite reach would otherwise
+    /// lower his own expectation and cancel his own advantage.
+    const REFERENCE_REACH: f32 = 26.0;
+
+    /// Normalised reflexes of that same reference keeper, feeding the
+    /// speed penalty exactly as the live path does.
+    const REFERENCE_REFLEXES: f32 = 0.55;
+
+    /// Multiplier an evenly-matched duel resolves to — the contest's own
+    /// definition of "ordinary keeper against the striker who hit it"
+    /// ([`Self::skill_multiplier`] with `edge == 0`). Using it here is
+    /// what keeps the expectation level-invariant: it is the same
+    /// relative bar in every division, so a lower-division keeper is not
+    /// judged against a top-flight keeper's hands.
+    const NEUTRAL_MULTIPLIER: f32 = Self::SKILL_FLOOR + Self::SKILL_SLOPE * 0.5;
+
+    /// Probability that a league-average keeper concedes this strike —
+    /// the engine's own post-shot expected-goal value for one shot on
+    /// target.
+    ///
+    /// `lateral` is the shot's placement measured from the GOAL CENTRE
+    /// (not from where the keeper happens to be standing), `speed` the
+    /// ball's velocity magnitude, `height` its projected height at the
+    /// line. Deliberately built from [`Self::geometric_base`] and the
+    /// same speed penalty the live roll uses, so the expectation and the
+    /// outcome are produced by one model: whatever calibration moves the
+    /// save rate moves the bar it is measured against by the same
+    /// amount.
+    pub(crate) fn expected_goal_on_target(lateral: f32, speed: f32, height: f32) -> f32 {
+        // Beyond a league-average keeper's dive there is no save to
+        // make — the live path returns before rolling in exactly this
+        // case, so the expectation has to agree.
+        if lateral.abs() > Self::REFERENCE_REACH {
+            return 1.0 - Self::MIN_SAVE;
+        }
+        let reach_ratio = (lateral.abs() / Self::REFERENCE_REACH).clamp(0.0, 1.0);
+        let speed_excess = (speed - 3.0).max(0.0);
+        let speed_penalty =
+            (speed_excess * 0.08 * (1.0 - Self::REFERENCE_REFLEXES * 0.5)).min(0.40);
+        // Height is not in the live geometric term (the save model is
+        // lateral-only), but a ball lifted toward the angle is measurably
+        // harder and ignoring it would let a keeper's expectation read
+        // the same for a rolling shot and one under the bar. Kept small
+        // so the lateral geometry stays dominant.
+        let height_penalty = (height / GOAL_HEIGHT).clamp(0.0, 1.0) * Self::HEIGHT_PENALTY;
+        let save = ((Self::geometric_base(reach_ratio) - speed_penalty - height_penalty)
+            * Self::NEUTRAL_MULTIPLIER)
+            .clamp(Self::MIN_SAVE, Self::MAX_SAVE);
+        1.0 - save
+    }
+
+    /// How much of the geometric ceiling a shot lifted to the crossbar
+    /// gives away for the reference keeper. Small next to
+    /// `STRETCH_PENALTY` (0.58) — going wide beats a keeper far more
+    /// often than going high.
+    const HEIGHT_PENALTY: f32 = 0.10;
 }
 
 impl Ball {
@@ -225,9 +450,20 @@ impl Ball {
             None => return,
         };
 
-        // Ball velocity determines the interception corridor width
+        // Ball velocity determines the interception corridor width.
+        //
+        // The floor only exists to hand a near-stationary ball to normal
+        // claiming — it is not a calibration knob. It was `speed < 1.0`,
+        // set when passes were struck at 0.5-2.7 u/tick under friction
+        // ~3.7× real. With `GROUND_FRICTION` corrected, a real pass now
+        // leaves the foot at 0.5-2.2 and arrives slower still, so a 1.0
+        // floor excluded most passes outright and interceptions fell from
+        // 37 to 2.6 per team against a real ~10. 0.25 u/tick is 3.1 m/s —
+        // the same physical meaning of "the ball is actually travelling"
+        // that 1.0 carried before the units moved under it.
+        const MIN_INTERCEPTABLE_SPEED: f32 = 0.25;
         let ball_speed_sq = self.velocity.x * self.velocity.x + self.velocity.y * self.velocity.y;
-        if ball_speed_sq < 1.0 {
+        if ball_speed_sq < MIN_INTERCEPTABLE_SPEED * MIN_INTERCEPTABLE_SPEED {
             return; // Ball too slow, normal claiming handles it
         }
 
@@ -303,20 +539,43 @@ impl Ball {
             }
         }
 
-        // Deterministic threshold. Avg defender (skill 0.5) at 60% of
-        // reach with a typical pass score ~0.040 — just above the bar —
-        // so most in-path defenders qualify, but peripheral ones don't.
+        // ONE PASS, ONE ATTEMPT — and it is a roll, not a threshold.
         //
-        // Stat-line note: population interceptions/team/match measures
-        // ~120 vs the ~10 real-football target. ~3× of that comes from
-        // the flight-protection extension (40→120 ticks) tripling the
-        // per-pass intercept window; the rest from pass-volume inflation
-        // (~1000 attempts/team vs real ~500). Raising the threshold to
-        // suppress this inflated goals/match dramatically (it acts as a
-        // population-wide pass-success governor), so the cosmetic stat
-        // inflation is accepted in favour of in-band goals + draws.
-        if best_chance > 0.030 {
-            if let Some(interceptor_id) = best_interceptor {
+        // This used to fire deterministically whenever `best_chance`
+        // cleared 0.030, re-evaluated every tick the ball was in flight.
+        // That made the interception RATE a function of how long the
+        // flight window happened to be rather than of the defending, and
+        // the previous note here recorded the consequence honestly: ~120
+        // interceptions per team against a real ~10, "~3× of that from
+        // the flight-protection extension tripling the per-pass intercept
+        // window". Correcting `GROUND_FRICTION` made the flights longer
+        // and more realistic still, and the deterministic form promptly
+        // ran to 1000+ per team.
+        //
+        // The chance the loop builds is already a per-event probability,
+        // so roll it. Latch on the first tick a defender is genuinely in
+        // reach — that is the moment the ball comes past him, and he gets
+        // one go at it, exactly as `try_block_shot` gives one roll per
+        // shot. Rate is now independent of the window length.
+        // A live SHOT keeps the old per-tick deterministic path. This
+        // site is where the engine actually models a defender getting a
+        // body in front of a strike — the event is already reclassified
+        // as a `block` on the stat sheet — and `try_block_shot`'s own
+        // corridor currently fires on 0.3% of checks against a real
+        // 18-22%. Latching shots here removed that channel outright and
+        // sent on-target from 32% to 59% and goals to 5.8 a game.
+        let is_live_shot = self.cached_shot_target.is_some();
+        let may_attempt = is_live_shot || !self.intercept_rolled;
+        if let Some(interceptor_id) = best_interceptor.filter(|_| may_attempt) {
+            if !is_live_shot {
+                self.intercept_rolled = true;
+            }
+            let fires = if is_live_shot {
+                best_chance > 0.030
+            } else {
+                context.rng.unit_f32() < best_chance
+            };
+            if fires {
                 // Snap the ball to the interceptor and zero the
                 // velocity. Before this, velocity was just scaled to
                 // Zeroing velocity + handing ownership to the defender
@@ -350,7 +609,23 @@ impl Ball {
                 // defender did not intercept a pass, he blocked a strike,
                 // and that is what the stat sheet should say. Captured
                 // before the flag is cleared and carried on the event.
-                let was_live_shot = self.cached_shot_target.is_some();
+                // A shot the defender got a body in front of is a BLOCK,
+                // and the stat sheet should say so. Keying that purely
+                // off `cached_shot_target` under-reported it badly: the
+                // target is cleared by several paths (a failed save, a
+                // keeper touch, a deflection) while the ball is still
+                // very much a shot in flight, and every stop after that
+                // point was filed as an ordinary interception. Blocks
+                // measured 0.18 per defender against a real ~0.9 for
+                // exactly this reason. `last_shot_struck_tick` is the
+                // robust question — was this BALL struck at goal
+                // recently — and is cleared on any dead ball.
+                let was_live_shot = self.cached_shot_target.is_some()
+                    || (self.last_shot_struck_tick > 0
+                        && self
+                            .current_tick_cached
+                            .saturating_sub(self.last_shot_struck_tick)
+                            < 400);
                 self.cached_shot_target = None;
                 let interceptor_team = players
                     .iter()
@@ -401,9 +676,14 @@ impl Ball {
         }
         #[cfg(feature = "match-logs")]
         block_diag::SHOTS_SEEN.fetch_add(1, Ordering::Relaxed);
-        // Ball above defender reach — aerial shots aren't blocked at
-        // chest height, only grounders and waist-high strikes.
-        if self.position.z > 2.0 {
+        // Ball above defender reach. This read `> 2.0` and the comment
+        // called it "chest height" — but 1u is 0.125 m, so the bar was
+        // 25 CENTIMETRES. Anything above ankle height was unblockable,
+        // which excluded 23% of all shot-ticks outright. A defender
+        // blocks with whatever he can get in the way, up to a raised
+        // boot or a head: 16u is 2 m.
+        const MAX_BLOCK_HEIGHT: f32 = 16.0;
+        if self.position.z > MAX_BLOCK_HEIGHT {
             #[cfg(feature = "match-logs")]
             block_diag::TOO_HIGH.fetch_add(1, Ordering::Relaxed);
             return;
@@ -447,8 +727,15 @@ impl Ball {
         // separate piece of work from the block model. Both constants
         // are therefore left where they were rather than carrying an
         // unmeasured widening for no benefit.
-        const BLOCK_LOOKAHEAD: f32 = 40.0;
-        const BLOCK_CORRIDOR: f32 = 7.0; // body + stretched leg (~0.9m)
+        // Widened 40/7 → 90/13 once the 25cm height bar above was lifted.
+        // The earlier attempt recorded in this comment measured no gain,
+        // but it was made while that bar silently threw away every ball
+        // above ankle height, so the corridor was never the thing being
+        // tested. 90u is 11 m — the range over which a defender can still
+        // get across to a shot — and 13u is 1.6 m, a committed lunge or
+        // slide rather than a standing body.
+        const BLOCK_LOOKAHEAD: f32 = 90.0;
+        const BLOCK_CORRIDOR: f32 = 16.0;
 
         let mut best_blocker: Option<u32> = None;
         let mut best_chance: f32 = 0.0;
@@ -466,6 +753,9 @@ impl Ball {
                 continue;
             }
 
+            #[cfg(feature = "match-logs")]
+            block_diag::OPP_SEEN.fetch_add(1, Ordering::Relaxed);
+
             // Project defender position onto the shot line.
             let dx = player.position.x - self.position.x;
             let dy = player.position.y - self.position.y;
@@ -473,14 +763,28 @@ impl Ball {
             // Must be ahead of the ball along the shot line, within
             // the lookahead window. 1u minimum so a defender level
             // with the ball (who's already been passed) doesn't count.
-            if projection < 1.0 || projection > BLOCK_LOOKAHEAD {
+            if projection < 1.0 {
+                #[cfg(feature = "match-logs")]
+                block_diag::BEHIND_BALL.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
+            if projection > BLOCK_LOOKAHEAD {
+                #[cfg(feature = "match-logs")]
+                block_diag::BEYOND_LOOKAHEAD.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
             // Perpendicular distance to the line.
             let perp =
                 (dx - projection * shot_dir_x).powi(2) + (dy - projection * shot_dir_y).powi(2);
             let perp_dist = perp.sqrt();
+            #[cfg(feature = "match-logs")]
+            {
+                block_diag::IN_WINDOW.fetch_add(1, Ordering::Relaxed);
+                block_diag::PERP_SUM_X100.fetch_add((perp_dist * 100.0) as u64, Ordering::Relaxed);
+            }
             if perp_dist > BLOCK_CORRIDOR {
+                #[cfg(feature = "match-logs")]
+                block_diag::OUTSIDE_CORRIDOR.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
 
@@ -527,7 +831,7 @@ impl Ball {
             // (skill_factor ≈ 0.85) at a good angle now block at
             // 30-40% chance, matching the real "closed-down striker
             // gets the ball blocked" rate.
-            let chance = skill_factor * line_factor * perp_factor * speed_penalty * 0.55;
+            let chance = skill_factor * line_factor * perp_factor * speed_penalty * 0.95;
 
             if chance > best_chance {
                 best_chance = chance;
@@ -550,7 +854,7 @@ impl Ball {
             }
         }
         let blocker_id = match best_blocker {
-            Some(id) if context.rng.unit_f32() < best_chance.clamp(0.03, 0.38) => id,
+            Some(id) if context.rng.unit_f32() < best_chance.clamp(0.03, 0.70) => id,
             _ => return,
         };
         #[cfg(feature = "match-logs")]
@@ -1223,5 +1527,78 @@ mod tests {
             "a full-stretch shot must beat an elite keeper more often than a centred one \
              beats a weak keeper; elite {elite_stretched:.3} weak {weak_centred:.3}"
         );
+    }
+
+    // ── Post-shot expectation ───────────────────────────────────────
+
+    /// The keeper's expectation must READ the strike. A corner-bound
+    /// shot, a rocket and a ball lifted under the bar each have to be
+    /// worth more than the tame equivalent, or `goals_prevented` is back
+    /// to assuming every shot on target was the same shot — which is the
+    /// bug the whole post-shot model exists to remove.
+    #[test]
+    fn expected_goal_on_target_reads_placement_power_and_height() {
+        let tame = SaveModel::expected_goal_on_target(0.0, 4.0, 0.2);
+        let corner = SaveModel::expected_goal_on_target(22.0, 4.0, 0.2);
+        let rocket = SaveModel::expected_goal_on_target(0.0, 8.0, 0.2);
+        let lifted = SaveModel::expected_goal_on_target(0.0, 4.0, 2.2);
+        assert!(
+            corner > tame,
+            "placement must raise the expectation: tame {tame:.3} corner {corner:.3}"
+        );
+        assert!(
+            rocket > tame,
+            "power must raise the expectation: tame {tame:.3} rocket {rocket:.3}"
+        );
+        assert!(
+            lifted > tame,
+            "height must raise the expectation: tame {tame:.3} lifted {lifted:.3}"
+        );
+        // Placement is the dominant axis — that is what `STRETCH_PENALTY`
+        // (0.58) against `HEIGHT_PENALTY` (0.10) says, and it is what
+        // real post-shot models find too.
+        assert!(
+            corner - tame > lifted - tame,
+            "placement must move the expectation more than height; \
+             corner {corner:.3} lifted {lifted:.3} tame {tame:.3}"
+        );
+    }
+
+    /// Bounded by construction, and the rating's difficulty clamp is
+    /// derived from these bounds — if they move, `keeper::DIFFICULTY_MAX`
+    /// has to move with them.
+    #[test]
+    fn expected_goal_on_target_stays_within_the_save_models_own_bounds() {
+        for lateral in [0.0f32, 5.0, 15.0, 25.9, 26.1, 40.0] {
+            for speed in [0.0f32, 3.0, 6.0, 12.0] {
+                for height in [0.0f32, 1.0, 2.44, 4.0] {
+                    let x = SaveModel::expected_goal_on_target(lateral, speed, height);
+                    assert!(
+                        (1.0 - SaveModel::MAX_SAVE..=1.0 - SaveModel::MIN_SAVE).contains(&x),
+                        "xGoT out of the save model's own range at \
+                         lateral={lateral} speed={speed} height={height}: {x:.3}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// It must not read the KEEPER. Nothing in the signature can carry
+    /// him, and that is the point being pinned: the moment the
+    /// expectation moves with the man it is measuring, a well-positioned
+    /// keeper shrinks his own bar and cancels the advantage his
+    /// positioning earned. Sign is measured from the goal CENTRE, so
+    /// mirrored placements are worth exactly the same.
+    #[test]
+    fn expected_goal_on_target_is_symmetric_about_the_goal_centre() {
+        for lateral in [1.0f32, 9.0, 18.0, 27.0] {
+            let left = SaveModel::expected_goal_on_target(-lateral, 5.0, 1.0);
+            let right = SaveModel::expected_goal_on_target(lateral, 5.0, 1.0);
+            assert_eq!(
+                left.to_bits(),
+                right.to_bits(),
+                "mirrored strikes must be worth the same at lateral {lateral}"
+            );
+        }
     }
 }

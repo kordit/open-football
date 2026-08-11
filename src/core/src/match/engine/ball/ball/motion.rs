@@ -29,15 +29,12 @@ impl Ball {
         // Air drag: affects aerial balls (proportional to v²)
         const AIR_DRAG_COEFFICIENT: f32 = 0.04; // Reduced for more realistic air resistance
 
-        // Ground friction: affects rolling balls (proportional to v for smooth deceleration)
-        // A real football on grass decelerates at about 0.5-1.5 m/s² depending on grass conditions
-        // Velocity-proportional rolling decay per 10ms tick. 0.015 meant a
-        // 78% speed loss PER SECOND (real grass: ~15%), which capped any
-        // ground pass at v0/k = 26m and forced every attack to advance by
-        // carrying — the root cause of 86% of shots coming from inside 11m.
-        // 0.006 lifts the ceiling to ~37m with the pass-power inversion in
-        // `calculate_horizontal_velocity` rescaled in step.
-        const GROUND_FRICTION_COEFFICIENT: f32 = 0.006;
+        // Velocity-proportional rolling decay per 10ms tick. The value now
+        // lives on the ball module so the physics and the pass-weighting
+        // that inverts it cannot drift apart — see `GROUND_FRICTION` for
+        // the derivation from the real 15%-per-second figure, and for why
+        // the previous 0.006 forced the pass-overshoot hack.
+        const GROUND_FRICTION_COEFFICIENT: f32 = super::GROUND_FRICTION;
 
         // CRITICAL: Global velocity sanity check - prevent cosmic-speed balls
         // Check for NaN or infinity and reset to zero
@@ -138,7 +135,7 @@ impl Ball {
         // 2. Ball has an owner (claimed)
         // Maximum distance owner can be from ball - must match deadlock claim distances
         // This allows deadlock resolution while preventing truly absurd teleports
-        const MAX_OWNER_TELEPORT_DISTANCE: f32 = 15.0;
+        const MAX_OWNER_TELEPORT_DISTANCE: f32 = super::MAX_OWNER_TRACK_DISTANCE;
         const MAX_OWNER_TELEPORT_DISTANCE_SQUARED: f32 =
             MAX_OWNER_TELEPORT_DISTANCE * MAX_OWNER_TELEPORT_DISTANCE;
 
@@ -185,6 +182,9 @@ impl Ball {
             } else {
                 // Owner is too far - this shouldn't happen but is a safety net
                 // Clear ownership and let ball move naturally
+                #[cfg(feature = "match-logs")]
+                super::ownership::reception_diag::OWNER_TOO_FAR
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 self.previous_owner = self.current_owner;
                 self.current_owner = None;
                 self.ownership_duration = 0;
@@ -211,7 +211,8 @@ impl Ball {
     }
 
     pub(super) fn move_to_with_players(&mut self, players: &[MatchPlayer]) {
-        const MAX_OWNER_TELEPORT_DISTANCE_SQUARED: f32 = 15.0 * 15.0;
+        const MAX_OWNER_TELEPORT_DISTANCE_SQUARED: f32 =
+            super::MAX_OWNER_TRACK_DISTANCE * super::MAX_OWNER_TRACK_DISTANCE;
         const BALL_TRACK_SPEED: f32 = 1.5;
         const SNAP_DISTANCE_SQUARED: f32 = 2.0 * 2.0;
 
@@ -234,6 +235,9 @@ impl Ball {
                         self.velocity = Vector3::zeros();
                     }
                 } else {
+                    #[cfg(feature = "match-logs")]
+                    super::ownership::reception_diag::OWNER_TOO_FAR
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     self.previous_owner = self.current_owner;
                     self.current_owner = None;
                     self.ownership_duration = 0;

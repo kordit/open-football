@@ -6,7 +6,9 @@ use crate::r#match::defenders::states::{
     DefenderShootingState, DefenderStandingState, DefenderTacklingState, DefenderTakeBallState,
     DefenderTrackingBackState, DefenderWalkingState,
 };
+use crate::r#match::defenders::states::common::DefensiveRecovery;
 use crate::r#match::{StateProcessingResult, StateProcessor};
+use nalgebra::Vector3;
 use std::fmt::Result;
 use std::fmt::{Display, Formatter};
 
@@ -39,6 +41,32 @@ pub enum DefenderState {
 }
 
 impl DefenderState {
+    /// States in which the defender is actively playing the ball rather
+    /// than holding a position.
+    ///
+    /// The goal-side rule ([`DefensiveRecovery`]) is about SHAPE — where
+    /// a defender stands when the ball is behind him. A defender who is
+    /// mid-interception, mid-tackle, attacking a header or clearing is
+    /// not out of shape; he is defending, and overriding his depth
+    /// velocity drags him off the ball he was about to win. Measured:
+    /// without this exemption DEF interceptions fell **1.38 → 0.40 per
+    /// match against a real ~1.3** when the rule landed — the rule was
+    /// pulling defenders goal-ward through the interception point.
+    /// Deliberately only the three states that are a tick from contact.
+    /// `Clearing` / `TakeBall` were tried and reverted: they are
+    /// long-lived, so exempting them switched the rule off for most of a
+    /// defender's match — goal-side presence fell 1.05 → 0.82 per shot
+    /// and clearances ballooned 1.64 → 8.14 against a real ~3.5. The
+    /// states where the defender already HAS the ball (`Passing`,
+    /// `Shooting`, `Crossing`) need no entry here: `depth_override`
+    /// exempts the ball carrier directly.
+    pub fn is_playing_the_ball(self) -> bool {
+        matches!(
+            self,
+            DefenderState::Intercepting | DefenderState::Tackling | DefenderState::Heading
+        )
+    }
+
     /// Every variant in declared order — single source of truth for the
     /// state universe (transition-graph audit + id-stability snapshot).
     pub const ALL: [DefenderState; 21] = [
@@ -76,6 +104,26 @@ impl DefenderStrategies {
         //     return common_state;
         // }
 
+        // Read the situation before dispatching — `process` consumes the
+        // processor. Every defender obeys the goal-side rule on top of
+        // whatever his state wants, because five of the states run during
+        // opposition possession and not one of them owns defensive depth.
+        // See `DefensiveRecovery` for the measurement that made this a
+        // cross-state rule rather than a fix to any single state.
+        let depth_override = if state.is_playing_the_ball() {
+            None
+        } else {
+            DefensiveRecovery::depth_override(&state_processor.ctx())
+        };
+
+        let mut result = Self::dispatch(state, state_processor);
+        if let (Some(depth), Some(velocity)) = (depth_override, result.velocity) {
+            result.velocity = Some(Vector3::new(depth, velocity.y, velocity.z));
+        }
+        result
+    }
+
+    fn dispatch(state: DefenderState, state_processor: StateProcessor) -> StateProcessingResult {
         match state {
             DefenderState::Standing => state_processor.process(DefenderStandingState::default()),
             DefenderState::Resting => state_processor.process(DefenderRestingState::default()),

@@ -155,6 +155,16 @@ impl MatchPlayerStatistics {
         self.blocks = self.blocks.saturating_add(1);
     }
 
+    /// Credit one shot this player was goal-side of and inside the lane
+    /// for — positional defending. See
+    /// [`ZoneStats::shots_covered_in_position`].
+    pub fn note_shot_covered_in_position(&mut self) {
+        self.zone_stats.shots_covered_in_position = self
+            .zone_stats
+            .shots_covered_in_position
+            .saturating_add(1);
+    }
+
     pub fn add_clearance(&mut self) {
         self.clearances = self.clearances.saturating_add(1);
     }
@@ -205,9 +215,16 @@ impl MatchPlayerStatistics {
     /// resolves a shot the keeper had to deal with — the three save
     /// paths and the conceded-goal path — goes through here so the three
     /// linked counters can never drift apart: `shots_faced` is the
-    /// denominator of save percentage, `xg_faced` is the chance value the
-    /// keeper was asked to deny (the goals-prevented model's expectation
-    /// term), and `xg_prevented` is the saved-minus-conceded ledger.
+    /// denominator of save percentage, `xg_faced` is the **post-shot**
+    /// expectation the keeper was asked to deny (what a league-average
+    /// keeper concedes from that strike — the goals-prevented model's
+    /// expectation term), and `xg_prevented` is the resulting PSxG − GA
+    /// ledger.
+    ///
+    /// `shot_xg` is post-shot, not pre-shot, and the whole keeper rating
+    /// turns on the difference: pre-shot xG scores the chance the DEFENCE
+    /// conceded, so a keeper behind a well-drilled side looked like one
+    /// facing league-average chances however tame the strikes were.
     ///
     /// Keeping them together is not tidiness: the rating's central
     /// invariant — a keeper who concedes more from the same chances must
