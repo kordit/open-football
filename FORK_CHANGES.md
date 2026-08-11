@@ -523,3 +523,28 @@ Earlier entries for `src/web/src/views/mod.rs`,
 `src/web/assets/static/css/style.css` (sidebar entry, home-page CTA and
 styles for the club-selection map) no longer apply — those files were
 deleted with the rest of the interface; see Removed.
+
+## Mecz: strzały z dystansu i pomiar linii obrony
+
+`common/players/ops/forward_shot_decision.rs` — próg xG dostał trzeci
+przedział dystansu. Tabela `distance_floor_base` schodzi powyżej 25 m do
+0.008, ale `min_xg.clamp(lo, hi)` miał tylko dwa progi i dla wszystkiego
+za 7,5 m podnosił wynik z powrotem do 0.025–0.040. Ten sam silnik wycenia
+sytuację z 30 m na ~0.008, więc warunek był niespełnialny: przez 16 meczów
+padło **zero** strzałów z 30 m+ przy realnym udziale ~5%, a 31,4% decyzji
+w tym paśmie odrzucał sam `min_xg`. Po zmianie: 2,2% strzałów z 30 m+,
+odrzuty na `min_xg` w tym paśmie 0,0%, strzały ogółem 9,9 → 11,0 na drużynę.
+
+`defenders/states/state.rs` — `depth_override` doklejał się warunkiem
+`if let (Some(depth), Some(velocity))`, więc omijał obrońcę, którego stan
+zwrócił `velocity: None`. Stojący obrońca przed piłką nie dostawał nakazu
+powrotu. Zmierzone jako neutralne, zostawione, bo brak prędkości jest
+powodem do biegu, nie do jego pominięcia.
+
+`match/result.rs` + `.dev/match/src/shape.rs` — `shape_report` liczy teraz,
+ilu obrońców stoi przed piłką, gdy piłka jest w ich tercji i najbliżej niej
+jest rywal (bez tego warunku pomiar liczył własne rozegranie od bramkarza
+jako błąd: 63,1% zamiast 38,2%).
+
+`teamplay/tactical.rs` — clamp linii obrony do piłki BYŁ napisany
+i USUNIĘTY po pomiarze. Wynik A/B jest w komentarzu przy `defensive_line_x`.

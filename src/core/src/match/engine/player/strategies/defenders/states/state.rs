@@ -117,8 +117,21 @@ impl DefenderStrategies {
         };
 
         let mut result = Self::dispatch(state, state_processor);
-        if let (Some(depth), Some(velocity)) = (depth_override, result.velocity) {
-            result.velocity = Some(Vector3::new(depth, velocity.y, velocity.z));
+        if let Some(depth) = depth_override {
+            // A state that returned no velocity is a defender who
+            // decided to stand still this tick — and standing still is
+            // exactly the failure the goal-side rule exists to catch.
+            // Pairing the override with `result.velocity` meant the rule
+            // only ever reached defenders who were already moving, so a
+            // back four holding its shape thirty metres upfield of a
+            // siege was left holding it. Measured over 12 matches: with
+            // the ball in a team's own third, 2.48 of its defenders
+            // stood upfield of it, two or more in 63% of those frames.
+            //
+            // No velocity is therefore not a reason to skip the run
+            // home; it is the reason to start one.
+            let base = result.velocity.unwrap_or_else(Vector3::zeros);
+            result.velocity = Some(Vector3::new(depth, base.y, base.z));
         }
         result
     }

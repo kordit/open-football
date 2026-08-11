@@ -570,6 +570,29 @@ impl TeamTacticalState {
         // window; not a six-yard-box bus.
         let home_gm_drop = field_width * 0.05 * home.game_management_intensity;
         let away_gm_drop = field_width * 0.05 * away.game_management_intensity;
+        // Phase decides how high to push, and nothing here clamps the
+        // line to the ball on purpose.
+        //
+        // A team-level clamp ("the back line may never stand more than
+        // 6m upfield of the ball while defending") was tried in this
+        // fork and MEASURED WORSE on every number it was meant to fix,
+        // over 12 matches at level 8:
+        //
+        //     metric                          clamped   plain
+        //     defenders upfield of the ball      1.46    1.34
+        //     frames with 2+ upfield            38.2%   35.4%
+        //     eight-plus inside a 10m circle     8.5%    7.0%
+        //
+        // Depth belongs to the individual defender, not to a shared
+        // reference line: `DefensiveRecovery::depth_override` already
+        // walks each defender back to a cover point 3m goal-side of the
+        // ball, exempting only the man going to press it. Moving the
+        // shared line on top of that double-counts the correction and
+        // drags the whole block onto the ball.
+        //
+        // Left as found, with the numbers, so the next person who spots
+        // that this line ignores the ball does not spend the evening
+        // re-running the experiment.
         home.defensive_line_x = (home_base_line - home_line_drop_units + home_gk_lift
             - home_gm_drop)
             .clamp(0.0, field_width);

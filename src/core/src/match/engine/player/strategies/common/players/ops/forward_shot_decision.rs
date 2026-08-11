@@ -682,7 +682,37 @@ pub fn evaluate_forward_shot_decision(
         + (selection - 0.5) * 0.22;
     let mut min_xg = distance_floor_base * situational.clamp(0.55, 1.85);
     // Clamp by skill tier (distance-relative).
-    let (lo, hi) = if execution_skill < 0.25 {
+    //
+    // Three distance tiers, not two. The two-tier version had a single
+    // `distance > 60.0` branch whose FLOOR (0.025–0.040) sat above
+    // everything the distance-aware base produced past 25m — base
+    // 0.008 × situational lands at 0.004–0.015, so the clamp raised it
+    // back to 0.025 every single time and the band above wrote its
+    // careful "beyond 25m only a specialist's chance clears" comment
+    // into a table that could never be read.
+    //
+    // The consequence was measurable and total: across 16 matches,
+    // shots from 30m+ = 0, against a real share of ~5%, with 31.4% of
+    // all shot decisions out there rejected on `min_xg` alone. The
+    // engine's own xG model prices a 30m look at ~0.008, so demanding
+    // 0.025 is demanding a chance that cannot exist at that range.
+    //
+    // The long-range floor below is set against what this engine's xG
+    // model actually returns out there, not against real-world xG —
+    // the population sits at 0.071/shot where real football sits at
+    // 0.11, so a floor copied from real numbers rejects everything.
+    let (lo, hi) = if distance > 200.0 {
+        // Beyond 25m. Skill still separates: a poor striker needs the
+        // chance to be twice what an elite one will settle for, which
+        // is what keeps the speculative 35m hoof a specialist's shot.
+        if execution_skill < 0.25 {
+            (0.011, 0.030)
+        } else if execution_skill < 0.55 {
+            (0.008, 0.024)
+        } else {
+            (0.006, 0.020)
+        }
+    } else if execution_skill < 0.25 {
         if distance > 60.0 {
             (0.040, 0.075)
         } else {

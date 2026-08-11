@@ -43,7 +43,15 @@ pub fn run_shape(n_matches: usize, level: u8) {
 
             result
                 .position_data
-                .shape_report(&home_ids, &away_ids, 840.0, 545.0, 500)
+                .shape_report(
+                    &home_ids,
+                    &away_ids,
+                    &(101..=104).collect::<Vec<u32>>(),
+                    &(201..=204).collect::<Vec<u32>>(),
+                    840.0,
+                    545.0,
+                    500,
+                )
         })
         .collect();
 
@@ -60,6 +68,20 @@ pub fn run_shape(n_matches: usize, level: u8) {
         .map(|r| (r.widest_player_m[0] + r.widest_player_m[1]) as f64 / 2.0)
         .sum::<f64>()
         / n;
+
+    // Back line vs ball: only meaningful over frames where the ball was
+    // actually in someone's defensive third, so weight by those frames
+    // rather than by match.
+    let deep: u32 = rows.iter().map(|r| r.deep_frames).sum();
+    let line_ahead: u32 = rows.iter().map(|r| r.line_ahead_frames).sum();
+    let defenders_ahead = if deep > 0 {
+        rows.iter()
+            .map(|r| r.mean_defenders_ahead * r.deep_frames as f64)
+            .sum::<f64>()
+            / deep as f64
+    } else {
+        0.0
+    };
 
     println!("Shape report: {n_matches} match(es) at level {level}\n");
     println!(
@@ -97,7 +119,23 @@ holding width: 20 m+)"
         }
     }
 
+    println!(
+        "\n  ball in own third, defenders caught upfield of it   {:5.2}    (football: <1)",
+        defenders_ahead
+    );
+    println!(
+        "  share of those frames with 2+ defenders upfield     {:5.1}%   (football: ~0%)",
+        if deep > 0 {
+            line_ahead as f32 / deep as f32 * 100.0
+        } else {
+            0.0
+        }
+    );
+
     let mut verdict = Vec::new();
+    if deep > 0 && line_ahead as f32 / deep as f32 > 0.10 {
+        verdict.push("BACK LINE AHEAD OF THE BALL: defenders standing upfield of their own siege");
+    }
     if mean_within > 5.0 {
         verdict.push("BALL SWARM: too many bodies at the ball");
     }

@@ -73,6 +73,18 @@ pub struct ShapeReport {
     /// frames only. Requires `MatchRuntime::set_events_mode(true)`;
     /// empty otherwise.
     pub scrum_states: HashMap<String, u32>,
+    /// Frames where the ball sat inside one team's defensive third —
+    /// the only frames in which "where is the back line" is a question
+    /// worth asking.
+    pub deep_frames: u32,
+    /// Of those, frames where two or more of that team's defenders were
+    /// further up the pitch than the ball. This is the picture of a back
+    /// line standing on the halfway line with the ball behind it.
+    pub line_ahead_frames: u32,
+    /// Mean number of that team's defenders upfield of the ball, over
+    /// `deep_frames`. Zero is not the target — one defender stepping out
+    /// to press the carrier is football. Two or more is not.
+    pub mean_defenders_ahead: f64,
 }
 
 /// Compact serialization: [timestamp, x, y] or [timestamp, x, y, z]
@@ -263,6 +275,8 @@ impl ResultMatchPositionData {
         &self,
         home_outfield: &[u32],
         away_outfield: &[u32],
+        home_defenders: &[u32],
+        away_defenders: &[u32],
         field_width: f32,
         field_height: f32,
         sample_every_ms: u64,
@@ -300,6 +314,13 @@ impl ResultMatchPositionData {
 
             let mut near_ball = 0u32;
             let mut near_ids: Vec<u32> = Vec::new();
+            // Who is closest to the ball, and on which side. The position
+            // recording carries no possession flag, and without one the
+            // back-line check below cannot tell a siege from our own
+            // goal kick — in build-up the centre-backs are SUPPOSED to
+            // be upfield of the ball. Nearest-man is the honest proxy
+            // available here.
+            let mut nearest: Option<(f32, usize)> = None;
 
             for (side, roster) in [(0usize, home_outfield), (1usize, away_outfield)] {
                 let mut widest: f32 = 0.0;
@@ -315,9 +336,13 @@ impl ResultMatchPositionData {
                     };
                     cursors.insert(id, cursor);
 
-                    if (pos - ball).norm() <= radius_units {
+                    let to_ball = (pos - ball).norm();
+                    if to_ball <= radius_units {
                         near_ball += 1;
                         near_ids.push(id);
+                    }
+                    if nearest.is_none_or(|(best, _)| to_ball < best) {
+                        nearest = Some((to_ball, side));
                     }
                     widest = widest.max((pos.y - centre_y).abs());
                     ys.push(pos.y);
@@ -358,6 +383,58 @@ impl ResultMatchPositionData {
                     }
                 }
             }
+            // ── Is the back line goal-side of the ball? ───────────────
+            //
+            // Only asked while the ball is inside a team's own third,
+            // because that is the only time the answer means anything:
+            // with the ball in the opponent's half a high line is the
+            // whole point, and counting it as a fault would reward
+            // parking the bus.
+            //
+            // Home defends x = 0 and attacks toward x = field_width;
+            // away is the mirror. "Ahead of the ball" therefore means
+            // a larger x for home and a smaller x for away.
+            // And only while that team is actually under pressure: the
+            // nearest man to the ball must be an opponent. Without this
+            // the count is dominated by our own goal kicks, where a back
+            // four upfield of the ball is correct football and would be
+            // scored as a fault.
+            let third = field_width / 3.0;
+            let pressed_by = nearest.map(|(_, side)| side);
+            let deep: Option<(&[u32], f32)> = if ball.x < third && pressed_by == Some(1) {
+                Some((home_defenders, 1.0))
+            } else if ball.x > field_width - third && pressed_by == Some(0) {
+                Some((away_defenders, -1.0))
+            } else {
+                None
+            };
+
+            if let Some((defenders, toward_opponent)) = deep {
+                let mut ahead = 0u32;
+
+                for &id in defenders {
+                    let Some(series) = self.players.get(&id) else {
+                        continue;
+                    };
+                    let mut cursor = cursors.get(&id).copied().unwrap_or(0);
+                    let Some(pos) = at(series, &mut cursor, t) else {
+                        continue;
+                    };
+                    cursors.insert(id, cursor);
+
+                    if (pos.x - ball.x) * toward_opponent > 0.0 {
+                        ahead += 1;
+                    }
+                }
+
+                report.deep_frames += 1;
+                report.mean_defenders_ahead += ahead as f64;
+
+                if ahead >= 2 {
+                    report.line_ahead_frames += 1;
+                }
+            }
+
             report.samples += 1;
 
             t += sample_every_ms;
@@ -366,6 +443,9 @@ impl ResultMatchPositionData {
         if report.samples > 0 {
             report.mean_within_10m /= report.samples as f64;
             report.scrum_share = report.scrum_samples as f32 / report.samples as f32;
+        }
+        if report.deep_frames > 0 {
+            report.mean_defenders_ahead /= report.deep_frames as f64;
         }
         for side in 0..2 {
             if report.side_samples[side] > 0 {
